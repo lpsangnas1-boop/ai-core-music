@@ -1,8 +1,8 @@
-# 🎧 Office Jukebox — Local Network YouTube Music Queue
+# 🎧 AI Core music — YouTube Music Queue for Office
 
-**Office Jukebox** là giải pháp music server / DJ station cho văn phòng trong mạng nội bộ (LAN / Wi-Fi).
+**AI Core music** là giải pháp music server / DJ station cho văn phòng thông minh, hỗ trợ cả mạng nội bộ (LAN / Wi-Fi) và kết nối qua Internet (Ngrok tunnel).
 
-Một máy tính duy nhất kết nối với loa ngoài làm **DJ Station** (Master YouTube Player). Tất cả đồng nghiệp trong cùng mạng Wi-Fi chỉ cần mở trình duyệt trên điện thoại hoặc laptop để **request bài hát realtime**, không ai cần chạm vào máy tính DJ nữa.
+Một máy tính duy nhất kết nối với loa ngoài làm **DJ Station** (Master YouTube Player). Tất cả đồng nghiệp (dù dùng Wi-Fi văn phòng hay 4G/5G) chỉ cần mở trình duyệt trên điện thoại hoặc laptop để **request bài hát realtime**, không ai cần chạm vào máy tính DJ.
 
 ---
 
@@ -15,8 +15,8 @@ Một máy tính duy nhất kết nối với loa ngoài làm **DJ Station** (Ma
   - Sau khi bài hát kết thúc (`YT.PlayerState.ENDED`) hoặc bị lỗi bản quyền (`onError`), hệ thống tự động skip sang bài tiếp theo.
 - **Mobile-first Guest Experience**: Giao diện dark mode hiện đại, dán link YouTube (hỗ trợ `watch`, `shorts`, `youtu.be`, `music.youtube`), xem trước thông tin bài hát (thumbnail, tựa đề, kênh), nhập tên người gửi và nhận thông báo vị trí trong hàng đợi (`You're #3 in queue`).
 - **Chống Spam & Trùng bài (Spam & Duplicate Protection)**:
-  - Giới hạn tối đa 2 bài đang chờ/thiết bị (dựa trên anonymous `deviceId`).
-  - Cooldown 2 phút giữa các lần request từ cùng một thiết bị.
+  - Giới hạn số bài đang chờ trên mỗi thiết bị (cấu hình trong `.env`).
+  - Cooldown giữa các lần request từ cùng một thiết bị.
   - Tự động chặn trùng lặp bài đang phát hoặc đã nằm trong Queue.
 - **DJ Master Station Dashboard**:
   - Điều khiển phát/dừng, chuyển bài, thanh tua (seek scrubber), âm lượng và tắt tiếng.
@@ -24,17 +24,18 @@ Một máy tính duy nhất kết nối với loa ngoài làm **DJ Station** (Ma
   - Quản lý Default Playlist: thêm bài từ YouTube, bật/tắt từng bài, xóa bài, chế độ lặp danh sách.
   - Xem lịch sử các bài đã phát (*Request History*).
   - Khóa quyền điều khiển bằng mã PIN bí mật (`ADMIN_PIN`).
-- **QR Code & Tự phát hiện IP**: Tự động phát hiện địa chỉ IPv4 nội bộ của máy (ví dụ `http://192.168.1.15:3000`) và tạo mã QR trên màn hình DJ để đồng nghiệp quét nhanh bằng camera điện thoại.
+- **Hỗ trợ Ngrok Online Tunnel**: Phát nhạc qua internet cực nhanh, đồng nghiệp dùng 4G/5G hoặc WFH đều request được, không lo Wi-Fi công ty chặn (Client Isolation).
 - **Lưu trữ dữ liệu bền vững (Persistence)**: Sử dụng SQLite (WAL mode) lưu trữ toàn bộ Default Playlist, Queue, Settings và Lịch sử. Khởi động lại server không bao giờ bị mất dữ liệu.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide Icons, QRCode.react, Canvas Confetti.
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide Icons, Canvas Confetti.
 - **Backend**: Node.js, Express, TypeScript, Socket.IO.
 - **Database**: SQLite (`node:sqlite` native / WAL mode).
 - **Player API**: YouTube IFrame Player API.
+- **Tunneling**: Ngrok.
 
 ---
 
@@ -47,29 +48,29 @@ Một máy tính duy nhất kết nối với loa ngoài làm **DJ Station** (Ma
 ### 2. Cài đặt Dependencies
 
 ```bash
-git clone <repository-url>
-cd teamAI_music
+git clone https://github.com/lpsangnas1-boop/ai-core-music.git
+cd ai-core-music
 npm install
 ```
 
 ### 3. Cấu hình biến môi trường (Environment Variables)
 
-File `.env` mặc định đã được tạo sẵn tại thư mục gốc:
+File `.env` mặc định tại thư mục gốc:
 
 ```env
-PORT=3000
+PORT=8989
 HOST=0.0.0.0
 ADMIN_PIN=123456
-SERVER_NAME="Office Jukebox"
+SERVER_NAME="AI Core music"
 REQUESTS_ENABLED=true
-REQUEST_COOLDOWN_SECONDS=120
-MAX_REQUESTS_PER_DEVICE=2
-DATABASE_PATH=../data/jukebox.db
+REQUEST_COOLDOWN_SECONDS=0
+MAX_REQUESTS_PER_DEVICE=20
+DATABASE_PATH=data/jukebox.db
 ```
 
 ### 4. Chạy trong môi trường Development
 
-Chạy đồng thời Backend (port 3000) và Vite Dev Server (port 5173):
+Chạy đồng thời Backend (port 8989) và Vite Dev Server (port 5173):
 
 ```bash
 npm run dev
@@ -78,9 +79,9 @@ npm run dev
 - Guest / Client: `http://localhost:5173`
 - DJ Station: `http://localhost:5173/admin`
 
-### 5. Chạy trong môi trường Production (Khuyến nghị cho văn phòng)
+### 5. Build & Chạy Production
 
-Build toàn bộ frontend & backend sau đó khởi chạy trên 1 cổng duy nhất (`3000`):
+Build toàn bộ frontend & backend sau đó khởi chạy:
 
 ```bash
 npm run build
@@ -89,49 +90,127 @@ npm start
 
 ---
 
-## 📶 Hướng dẫn truy cập qua mạng LAN / Wi-Fi
+## 🌐 Hướng dẫn cấu hình & Chạy Online qua Ngrok (Khuyên dùng)
 
-1. Đảm bảo máy tính DJ và điện thoại/laptop của đồng nghiệp **kết nối chung một mạng Wi-Fi hoặc mạng LAN văn phòng**.
-2. Khởi động server bằng lệnh `npm start`.
-3. Server sẽ in ra thông tin truy cập trên màn hình terminal:
-   ```text
-   ==================================================
-     🎧  OFFICE JUKEBOX SERVER IS LIVE!
-   ==================================================
-     Host bound:     0.0.0.0
-     Local Access:   http://localhost:3000
-     LAN Access:     http://192.168.1.15:3000
-     Admin Panel:    http://192.168.1.15:3000/admin
-     Admin PIN:      123456
-   ==================================================
+> [!TIP]
+> **Vì sao nên dùng Ngrok?**
+> - **Vượt qua giới hạn Wi-Fi văn phòng**: Khắc phục triệt để tính năng *Client Isolation / AP Isolation* của router công ty (chặn các thiết bị nội bộ kết nối trực tiếp với nhau).
+> - **Dùng 4G/5G thoải mái**: Đồng nghiệp không bắt buộc phải kết nối chung Wi-Fi; dùng 4G, mạng khác hoặc làm việc từ xa (WFH) đều order bài được.
+> - **Bảo mật HTTPS**: Ngrok cung cấp link HTTPS an toàn, có hỗ trợ WebSocket cho Socket.IO hoạt động realtime.
+> - **Không cần mở cổng Router (Port Forwarding)** hay can thiệp vào tường lửa văn phòng.
+
+### 🛠️ Các bước thiết lập Ngrok (Chỉ làm 1 lần đầu)
+
+#### Bước 1: Đăng ký tài khoản Ngrok miễn phí
+1. Truy cập [https://ngrok.com](https://ngrok.com) và bấm **Sign Up Free** (có thể đăng nhập nhanh bằng tài khoản Google hoặc GitHub).
+
+#### Bước 2: Cài đặt Ngrok trên máy tính DJ (Windows)
+Bạn có thể cài đặt bằng một trong hai cách:
+- **Cách A (Nhanh nhất qua PowerShell)**:
+  ```powershell
+  winget install ngrok
+  ```
+- **Cách B (Tải file nén thủ công)**:
+  1. Vào [https://ngrok.com/download](https://ngrok.com/download) và tải file ZIP cho Windows.
+  2. Giải nén được file `ngrok.exe`.
+  3. Copy file `ngrok.exe` vào thư mục dự án hoặc thêm vào biến môi trường `PATH` của máy tính.
+
+#### Bước 3: Kích hoạt Authtoken
+1. Đăng nhập vào Ngrok Dashboard, vào trang [Your Authtoken](https://dashboard.ngrok.com/get-started/your-authtoken).
+2. Sao chép mã token và chạy lệnh sau trong PowerShell / Terminal:
+   ```bash
+   ngrok config add-authtoken <YOUR_AUTHTOKEN>
    ```
-4. **Mở trên điện thoại**: Quét mã QR hiển thị ở góc trên cùng của web hoặc gõ trực tiếp `http://<IP-MÁY-DJ>:3000` (ví dụ `http://192.168.1.15:3000`).
+
+#### Bước 4: Lấy Static Domain miễn phí (Khuyến nghị để cố định link)
+Mỗi tài khoản Ngrok miễn phí được tặng **1 domain cố định vĩnh viễn**:
+1. Trên dashboard Ngrok, vào menu **Cloud Edge** ➔ **Domains**.
+2. Nhấn **Create Domain** (hoặc copy tên miền đã được cấp sẵn, ví dụ: `duo-stagnant-elbow.ngrok-free.dev` hoặc `your-subdomain.ngrok-free.app`).
+3. Mở file [scripts/launcher.js](file:///scripts/launcher.js), điền domain của bạn vào dòng:
+   ```javascript
+   const NGROK_DOMAIN = 'ten-mien-cua-ban.ngrok-free.dev';
+   ```
 
 ---
 
-## 🛡️ Cấu hình Windows Firewall (Tường lửa Windows)
+### 🚀 Cách khởi chạy cùng Ngrok
 
-Nếu đồng nghiệp không truy cập được vào địa chỉ IP của bạn, hãy mở cổng 3000 trên Windows Defender Firewall:
+#### Cách 1: 1-Click tự động (Khuyên dùng)
+Nhấp đúp chuột vào file **`start-music.bat`** tại thư mục gốc (hoặc chạy lệnh terminal):
+```bash
+npm run start:online
+```
+Hệ thống sẽ tự động:
+1. Chạy server Node.js (cổng `8989`).
+2. Mở tunnel Ngrok với domain cố định của bạn.
+3. In link công khai ra màn hình và tự động mở trình duyệt vào trang DJ!
+
+#### Cách 2: Chạy thủ công bằng 2 terminal
+Nếu muốn kiểm soát độc lập từng tiến trình:
+- **Terminal 1** (Chạy server):
+  ```bash
+  npm start
+  ```
+- **Terminal 2** (Mở tunnel Ngrok trỏ về port 8989):
+  ```bash
+  # Nếu có Static Domain cố định:
+  ngrok http --url=ten-mien-cua-ban.ngrok-free.app 8989
+
+  # Hoặc nếu dùng domain ngẫu nhiên:
+  ngrok http 8989
+  ```
+- Copy đường dẫn `https://xxxx.ngrok-free.app` hiển thị ở dòng **Forwarding** và gửi cho đồng nghiệp.
+
+---
+
+## 📶 Hướng dẫn truy cập qua mạng LAN / Wi-Fi nội bộ
+
+Nếu bạn không sử dụng Ngrok và muốn chạy trực tiếp trong mạng nội bộ:
+
+1. Đảm bảo máy tính DJ và điện thoại của mọi người **kết nối chung một mạng Wi-Fi**.
+2. Khởi động server:
+   ```bash
+   npm start
+   ```
+3. Server sẽ in thông tin truy cập ra màn hình terminal:
+   ```text
+   ==================================================
+     🎧  AI CORE MUSIC SERVER IS LIVE!
+   ==================================================
+     Host bound:     0.0.0.0
+     Local Access:   http://localhost:8989
+     LAN Access:     http://192.168.1.15:8989
+     Admin Panel:    http://192.168.1.15:8989/admin
+     Admin PIN:      123456
+   ==================================================
+   ```
+4. Gửi link `http://<IP-MÁY-DJ>:8989` (ví dụ `http://192.168.1.15:8989`) cho mọi người mở trên trình duyệt điện thoại.
+
+---
+
+## 🛡️ Cấu hình Windows Firewall (Khi dùng mạng LAN)
+
+Nếu đồng nghiệp không truy cập được vào địa chỉ IP nội bộ của bạn, hãy mở cổng `8989` trên Windows Defender Firewall:
 
 ### Cách 1: Chạy PowerShell (Run as Administrator)
 
 ```powershell
-New-NetFirewallRule -DisplayName "Office Jukebox (Port 3000)" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "AI Core music (Port 8989)" -Direction Inbound -LocalPort 8989 -Protocol TCP -Action Allow
 ```
 
 ### Cách 2: Qua giao diện Windows Defender Firewall
 1. Mở **Windows Defender Firewall with Advanced Security**.
 2. Chọn **Inbound Rules** -> **New Rule...**
-3. Chọn **Port** -> Next -> Chọn **TCP**, nhập **3000** vào Specific local ports.
-4. Chọn **Allow the connection** -> Next -> Tích đủ Domain, Private, Public -> Đặt tên `Office Jukebox` -> Finish.
+3. Chọn **Port** -> Next -> Chọn **TCP**, nhập **8989** vào Specific local ports.
+4. Chọn **Allow the connection** -> Next -> Tích đủ Domain, Private, Public -> Đặt tên `AI Core music` -> Finish.
 
 ---
 
 ## 🔑 Hướng dẫn quản trị DJ Station (`/admin`)
 
-1. Truy cập đường dẫn `/admin` trên máy tính kết nối loa.
+1. Truy cập đường dẫn `/admin` trên máy tính kết nối loa (ví dụ: `http://localhost:8989/admin`).
 2. Nhập mã PIN (mặc định: `123456`).
-3. Nhấn **START JUKEBOX** để mở quyền autoplay của trình duyệt.
+3. Nhấn **START JUKEBOX** để mở quyền autoplay âm thanh của trình duyệt.
 4. Máy tính DJ sẽ bắt đầu phát Default Playlist hoặc các bài do mọi người vừa request.
 
 ---
@@ -187,18 +266,9 @@ New-NetFirewallRule -DisplayName "Office Jukebox (Port 3000)" -Direction Inbound
 
 1. **Autoplay Policy**: Trình duyệt hiện đại yêu cầu người dùng phải tương tác (click) một lần trên máy DJ trước khi YouTube Player có thể tự phát âm thanh. Giao diện đã có nút **START JUKEBOX** để giải quyết vấn đề này.
 2. **Video Embedding Restrictions**: Một số ít video YouTube bị chủ sở hữu tắt tính năng "Cho phép nhúng (Embedding)". Khi gặp video này, Master Player sẽ bắt sự kiện `onError` và tự động skip sang bài kế tiếp mà không bị gián đoạn.
-3. **Mạng LAN / Wi-Fi Isolation**: Ở một số mạng Wi-Fi công ty có bật tính năng "Client Isolation" (không cho phép các thiết bị Wi-Fi nói chuyện với nhau), hãy yêu cầu IT hỗ trợ tắt Client Isolation hoặc cắm dây LAN cho máy DJ.
-
----
-
-## 🔮 Hướng phát triển tiếp theo (Next Improvements)
-
-- [ ] Tích hợp YouTube Data API v3 search để tìm kiếm bài hát trực tiếp bằng từ khóa không cần mở YouTube copy link.
-- [ ] Tính năng Upvote / Downvote bài trong queue để văn phòng cùng bình chọn bài được phát sớm hơn.
-- [ ] Thống kê Top bài hát được yêu thích nhất và Top người request nhiều nhất tuần/tháng.
-- [ ] Phím tắt bàn phím (Media keys) cho máy DJ.
+3. **Mạng LAN / Wi-Fi Isolation**: Ở các mạng Wi-Fi công ty có Client Isolation, hãy sử dụng giải pháp **Ngrok** như hướng dẫn ở trên để bỏ qua hoàn toàn giới hạn này.
 
 ---
 
 ## 📄 License
-ISC License. Built for internal team entertainment.
+ISC License. Built for team entertainment.
