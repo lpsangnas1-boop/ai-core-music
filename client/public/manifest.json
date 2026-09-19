@@ -1,0 +1,29 @@
+{
+  "name": "AI Core music - Office Jukebox",
+  "short_name": "AI Music",
+  "description": "Hệ thống phát nhạc Jukebox văn phòng AI Core",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#fffcef",
+  "theme_color": "#25385b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

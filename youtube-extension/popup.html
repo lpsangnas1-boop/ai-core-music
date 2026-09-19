@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 280px;
+      padding: 14px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #e1d7c2;
+      color: #23251d;
+      margin: 0;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #bfc1b7;
+      border-radius: 4px;
+      padding: 12px;
+    }
+    h3 {
+      margin: 0 0 4px 0;
+      font-size: 14px;
+      color: #23251d;
+    }
+    p {
+      font-size: 11px;
+      color: #65675e;
+      margin: 0 0 10px 0;
+      line-height: 1.4;
+    }
+    .label {
+      font-size: 10px;
+      font-weight: bold;
+      color: #65675e;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      display: block;
+    }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: monospace;
+      border: 1px solid #bfc1b7;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      background: #fdfdf8;
+    }
+    .presets {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .preset-btn {
+      flex: 1;
+      padding: 4px;
+      font-size: 10px;
+      background: #eeefe9;
+      border: 1px solid #bfc1b7;
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: monospace;
+    }
+    .preset-btn:hover {
+      background: #e5e7e0;
+    }
+    button.primary {
+      width: 100%;
+      background: #eb9d2a;
+      color: #23251d;
+      border: none;
+      padding: 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    button.primary:hover {
+      background: #cd8407;
+    }
+    .status {
+      font-size: 11px;
+      font-family: monospace;
+      color: #6aa84f;
+      margin-top: 8px;
+      text-align: center;
+      padding: 4px;
+      background: #fdfdf8;
+      border: 1px solid #bfc1b7;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h3>🎧 Office Jukebox Bridge</h3>
+    <p>Phát nhạc trực tiếp trên tab YouTube này khi có request từ Office Jukebox.</p>
+    
+    <label class="label">Server URL (Cổng mặc định: 8989):</label>
+    <input type="text" id="urlInput" value="http://localhost:8989" placeholder="http://localhost:8989" />
+    
+    <div class="presets">
+      <button class="preset-btn" id="btnLocal">localhost:8989</button>
+      <button class="preset-btn" id="btn127">127.0.0.1:8989</button>
+    </div>
+
+    <button class="primary" id="saveBtn">Lưu & Kết Nối</button>
+    <div id="status" class="status">● Extension đã sẵn sàng</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

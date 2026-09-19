@@ -1,0 +1,354 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Recess Palette */
+    --color-twilight-navy: #25385b;
+    --color-periwinkle-sky: #a2b0ff;
+    --color-dusk-indigo: #0a0a3a;
+    --color-cobalt-pop: #3252f4;
+    --color-coral-blush: #ff5a5a;
+    --color-cloud-white: #ffffff;
+    --color-cream-linen: #fffcef;
+    --color-slate-mist: #84849c;
+    --color-onyx: #000000;
+
+    /* Surfaces */
+    --surface-canvas: #fffcef;
+    --surface-card: #ffffff;
+    --surface-alt: #fffcef;
+    --surface-chrome: #ffffff;
+    --surface-dark: #0a0a3a;
+    --surface-border: #25385b;
+    --surface-border-subtle: #84849c;
+
+    /* Typography */
+    --font-sharp-grotesk: 'Space Grotesk', 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-body: 'DM Sans', 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-script: 'Caveat', 'Pacifico', cursive, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+
+    /* Compatibility Mappings */
+    --color-blurple: #3252f4;
+    --color-dark-blurple: #25385b;
+    --color-hover-blurple: #a2b0ff;
+    --color-spring-green: #10b981;
+    --color-fuchsia: #ff5a5a;
+    --color-vivid-cerulean: #3252f4;
+    --color-ember-orange: #ff5a5a;
+    --color-ekko-red: #ff5a5a;
+    --color-void: #000000;
+    --color-snow: #ffffff;
+    --color-not-quite-black: #25385b;
+    --color-dark-charcoal: #25385b;
+    --color-graphite: #84849c;
+    --color-fog: #84849c;
+    --color-greyple: #84849c;
+    --color-dim-grey: #84849c;
+    --color-off-white: #fffcef;
+
+    --surface-cosmic-page: #fffcef;
+    --surface-app-chrome: #ffffff;
+    --surface-app-surface: #fffcef;
+    --surface-card: #ffffff;
+    --surface-deep: #0a0a3a;
+    --surface-border: #25385b;
+
+    --font-abc-ginto-nord-discord: 'Space Grotesk', 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-abc-ginto-discord: 'DM Sans', 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-gg-sans: 'IBM Plex Mono', monospace;
+    --font-abc-ginto-normal: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    background-color: #ffd8cc;
+    background-image: 
+      radial-gradient(ellipse 90% 70% at 15% -10%, rgba(162, 176, 255, 0.85), transparent 70%),
+      radial-gradient(ellipse 80% 60% at 85% 10%, rgba(255, 142, 114, 0.8), transparent 65%),
+      radial-gradient(ellipse 80% 70% at 50% 45%, rgba(254, 215, 170, 0.75), transparent 60%),
+      radial-gradient(ellipse 75% 65% at 5% 75%, rgba(244, 114, 182, 0.65), transparent 65%),
+      radial-gradient(ellipse 90% 70% at 90% 80%, rgba(147, 197, 253, 0.8), transparent 65%),
+      radial-gradient(ellipse 70% 60% at 50% 95%, rgba(253, 230, 138, 0.7), transparent 60%),
+      linear-gradient(135deg, #fbcfe8 0%, #fed7aa 28%, #bfdbfe 55%, #fef08a 78%, #ddd6fe 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    color: var(--color-twilight-navy);
+    font-family: var(--font-body);
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sharp-grotesk);
+    letter-spacing: -0.01em;
+    color: var(--color-twilight-navy);
+    font-weight: 700;
+  }
+}
+
+/* Recess Low-Elevation Card & Window Components */
+.recess-card,
+.discord-card,
+.posthog-card {
+  background-color: rgba(255, 252, 239, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid var(--color-twilight-navy);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(37, 56, 91, 0.08);
+  color: var(--color-twilight-navy);
+}
+
+.recess-window,
+.discord-window,
+.posthog-window {
+  background-color: rgba(255, 252, 239, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid var(--color-twilight-navy);
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(37, 56, 91, 0.1);
+  overflow: hidden;
+  color: var(--color-twilight-navy);
+}
+
+.recess-titlebar,
+.discord-titlebar,
+.posthog-titlebar {
+  height: 38px;
+  background-color: var(--color-cream-linen);
+  border-bottom: 1.5px solid var(--color-twilight-navy);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  color: var(--color-twilight-navy);
+  font-family: var(--font-sharp-grotesk);
+  font-weight: 600;
+}
+
+/* Recess Button Variants */
+.btn-primary,
+.btn-blurple,
+.btn-amber {
+  background-color: var(--color-twilight-navy);
+  color: var(--color-cloud-white);
+  border-radius: 6px;
+  font-family: var(--font-sharp-grotesk);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  padding: 9px 20px;
+  border: 1.5px solid var(--color-twilight-navy);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-primary:hover,
+.btn-blurple:hover,
+.btn-amber:hover {
+  background-color: var(--color-cobalt-pop);
+  border-color: var(--color-cobalt-pop);
+  color: var(--color-cloud-white);
+}
+
+.btn-primary:active,
+.btn-blurple:active,
+.btn-amber:active {
+  transform: scale(0.98);
+}
+
+.btn-outline,
+.btn-secondary,
+.btn-outline-gold {
+  background-color: var(--color-cloud-white);
+  color: var(--color-twilight-navy);
+  border: 1.5px solid var(--color-twilight-navy);
+  border-radius: 6px;
+  font-family: var(--font-sharp-grotesk);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 18px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-outline:hover,
+.btn-secondary:hover,
+.btn-outline-gold:hover {
+  background-color: #f0f3ff;
+  border-color: var(--color-twilight-navy);
+}
+
+.btn-ghost-pill {
+  background-color: var(--color-cloud-white);
+  color: var(--color-twilight-navy);
+  border: 1.5px solid var(--color-twilight-navy);
+  border-radius: 9999px;
+  font-family: var(--font-sharp-grotesk);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 18px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-ghost-pill:hover {
+  background-color: #f0f3ff;
+}
+
+.btn-white {
+  background-color: var(--color-cloud-white);
+  color: var(--color-twilight-navy);
+  border-radius: 6px;
+  border: 1.5px solid var(--color-twilight-navy);
+  font-family: var(--font-sharp-grotesk);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 9px 20px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-white:hover {
+  background-color: #f0f3ff;
+}
+
+/* Custom Scrollbar - Recess Pastel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fffcef;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a2b0ff;
+  border-radius: 4px;
+  border: 2px solid #fffcef;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #25385b;
+}
+
+/* Equalizer Bars - Twilight Navy & Cobalt Pop */
+@keyframes eq-bar-1 { 0%, 100% { height: 20%; } 50% { height: 95%; } }
+@keyframes eq-bar-2 { 0%, 100% { height: 80%; } 50% { height: 30%; } }
+@keyframes eq-bar-3 { 0%, 100% { height: 40%; } 50% { height: 100%; } }
+@keyframes eq-bar-4 { 0%, 100% { height: 90%; } 50% { height: 15%; } }
+
+.animate-eq-1 { animation: eq-bar-1 1s ease-in-out infinite alternate; }
+.animate-eq-2 { animation: eq-bar-2 1.3s ease-in-out infinite alternate; }
+.animate-eq-3 { animation: eq-bar-3 0.9s ease-in-out infinite alternate; }
+.animate-eq-4 { animation: eq-bar-4 1.1s ease-in-out infinite alternate; }
+
+/* Reaction Floating Animation */
+@keyframes reaction-float {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(0.6) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-30px) scale(1.15) rotate(-6deg);
+  }
+  60% {
+    opacity: 0.95;
+    transform: translateY(-90px) scale(1) rotate(6deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-160px) scale(0.8) rotate(-4deg);
+  }
+}
+
+.animate-reaction-float {
+  animation: reaction-float 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Vinyl Disc Styles - Recess Pastel Sunset Aesthetic */
+.vinyl-disc {
+  background: radial-gradient(circle, #fffcef 0%, #a2b0ff 30%, #25385b 65%, #0a0a3a 100%);
+  box-shadow: 0 6px 18px rgba(37, 56, 91, 0.25), inset 0 0 0 2px #25385b, inset 0 0 0 6px rgba(162, 176, 255, 0.4);
+}
+
+.vinyl-grooves {
+  background: repeating-radial-gradient(
+    circle at center,
+    transparent 0,
+    transparent 4px,
+    rgba(255, 255, 255, 0.15) 5px,
+    transparent 6px
+  );
+}
+
+@keyframes slow-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-vinyl-spin {
+  animation: slow-spin 14s linear infinite;
+}
+
+/* Danmaku Bullet Chat Fly Animation */
+@keyframes danmaku-fly {
+  0% {
+    transform: translateX(100vw);
+  }
+  100% {
+    transform: translateX(-150%);
+  }
+}
+
+.animate-danmaku {
+  animation-name: danmaku-fly;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* Continuous Marquee for Song Shoutout */
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee-scroll 16s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Top Marquee Banner Infinite Strip */
+@keyframes marquee-infinite-strip {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-infinite {
+  display: flex;
+  width: max-content;
+  animation: marquee-infinite-strip 48s linear infinite;
+}
+
+.animate-marquee-infinite:hover {
+  animation-play-state: paused;
+}
+

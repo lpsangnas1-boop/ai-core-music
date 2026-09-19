@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Office Jukebox — YouTube Tab Bridge",
+  "version": "1.0.0",
+  "description": "Bridges native youtube.com tab directly to Office Jukebox music queue",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["socket.io.min.js", "content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Office Jukebox Bridge"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "office-jukebox",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Office Jukebox - Local Network YouTube Music Queue for Office Environments",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue.bold,green.bold\" \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=server && npm run build --workspace=client",
+    "build:server": "npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "start": "node server/dist/index.js",
+    "start:online": "node scripts/launcher.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "jukebox",
+    "youtube",
+    "music-queue",
+    "local-network",
+    "office-music",
+    "socketio"
+  ],
+  "author": "",
+  "license": "ISC"
+}

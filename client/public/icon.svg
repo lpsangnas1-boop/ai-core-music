@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5865f2"/>
+      <stop offset="50%" stop-color="#3442d9"/>
+      <stop offset="100%" stop-color="#0e0f2d"/>
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00b0f4"/>
+      <stop offset="100%" stop-color="#eb459e"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Rounded Squircle -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGrad)"/>
+  
+  <!-- Outer Ring / Vinyl Accent -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(255, 255, 255, 0.12)" stroke-width="8"/>
+  <circle cx="256" cy="256" r="140" fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="6"/>
+
+  <!-- Headphones Arc -->
+  <path d="M 128 256 A 128 128 0 0 1 384 256" fill="none" stroke="url(#glowGrad)" stroke-width="28" stroke-linecap="round"/>
+  
+  <!-- Headphone Ear Pads -->
+  <rect x="100" y="240" width="36" height="80" rx="18" fill="#ffffff"/>
+  <rect x="376" y="240" width="36" height="80" rx="18" fill="#ffffff"/>
+
+  <!-- Music Note Center Symbol -->
+  <path d="M 230 310 A 24 24 0 1 1 206 286 L 206 195 L 300 175 L 300 270 A 24 24 0 1 1 276 246" fill="#ffffff"/>
+  <polygon points="206,195 300,175 300,205 206,225" fill="#ffffff"/>
+</svg>
