@@ -60,7 +60,7 @@ export async function fetchYouTubeMetadata(urlOrId: string): Promise<VideoMetada
   const youtubeId = extractYouTubeId(urlOrId);
 
   if (!youtubeId) {
-    throw new Error('Invalid YouTube URL or Video ID');
+    throw new Error('Đường link hoặc mã video YouTube không hợp lệ');
   }
 
   const cached = getFromCache(metadataCache, youtubeId);
@@ -81,12 +81,12 @@ export async function fetchYouTubeMetadata(urlOrId: string): Promise<VideoMetada
 
     if (!response.ok) {
       if (response.status === 404) {
-        throw new Error('YouTube video not found or is private');
+        throw new Error('Không tìm thấy video YouTube hoặc video ở chế độ riêng tư');
       }
       if (response.status === 401 || response.status === 403) {
-        throw new Error('YouTube video embedding is restricted by owner');
+        throw new Error('Video này bị chủ sở hữu chặn phát ngoài YouTube. Vui lòng chọn bản Lyric/Audio khác!');
       }
-      throw new Error(`YouTube metadata error (status ${response.status})`);
+      throw new Error(`Lỗi nạp thông tin YouTube (status ${response.status})`);
     }
 
     const data = (await response.json()) as {
