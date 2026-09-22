@@ -28,10 +28,10 @@ function loadEnv() {
 loadEnv();
 
 const PORT = process.env.PORT || '8989';
-const TUNNEL_MODE = (process.env.TUNNEL_MODE || 'localtunnel').toLowerCase();
+const TUNNEL_MODE = (process.env.TUNNEL_MODE || 'cloudflare').toLowerCase();
+const CUSTOM_DOMAIN = process.env.CUSTOM_DOMAIN || 'music.lpsang.id.vn';
 const LT_SUBDOMAIN = process.env.LT_SUBDOMAIN || 'aicoremusic';
 const NGROK_DOMAIN = process.env.NGROK_DOMAIN || '';
-const CUSTOM_DOMAIN = process.env.CUSTOM_DOMAIN || 'music.lpsang.id.vn';
 
 function getLocalIp() {
   const interfaces = os.networkInterfaces();
@@ -43,22 +43,6 @@ function getLocalIp() {
     }
   }
   return 'localhost';
-}
-
-async function getPublicIp() {
-  try {
-    const res = await fetch('https://localtunnel.me/mytunnelpassword', {
-      signal: AbortSignal.timeout(4000),
-    });
-    if (res.ok) return (await res.text()).trim();
-  } catch (e) {}
-  try {
-    const res = await fetch('https://api.ipify.org', {
-      signal: AbortSignal.timeout(4000),
-    });
-    if (res.ok) return (await res.text()).trim();
-  } catch (e) {}
-  return 'Xem tại https://localtunnel.me/mytunnelpassword';
 }
 
 function runBuild() {
@@ -93,12 +77,6 @@ async function ensureBuild() {
     } catch (err) {
       console.error('\n❌ BUILD THẤT BẠI!');
       console.error(err.message);
-      console.error('\n👉 Hướng dẫn khắc phục nếu gặp lỗi Rollup/Vite trên Windows:');
-      console.error('   1. rmdir /s /q node_modules');
-      console.error('   2. del package-lock.json');
-      console.error('   3. npm cache clean --force');
-      console.error('   4. npm install');
-      console.error('   5. npm run build\n');
       process.exit(1);
     }
   }
@@ -115,26 +93,19 @@ function printSuccessBanner(info = {}) {
   console.log('');
 
   if (info.onlineUrl) {
-    console.log(`  🌐 LINK ONLINE (${(info.mode || 'INTERNET').toUpperCase()} - MIỄN PHÍ KHÔNG GIỚI HẠN):`);
+    console.log('  🌐 TÊN MIỀN CHÍNH THỨC (CLOUDFLARE HTTPS VĨNH VIỄN):');
     console.log(`     👉 \x1b[32m\x1b[1m${info.onlineUrl}\x1b[0m 👈`);
-    console.log('     (Gửi link này cho đồng nghiệp dùng 4G/5G/Wi-Fi order nhạc)');
+    console.log('     (Gửi link này cho đồng nghiệp dùng 4G/5G/Wi-Fi để order bài)');
 
     if (info.tunnelPassword) {
       console.log('');
-      console.log('  🔑 MẬT KHẨU BẢO MẬT TUNNEL (Khi mở lần đầu trên điện thoại hỏi password):');
+      console.log('  🔑 MẬT KHẨU TUNNEL:');
       console.log(`     👉 \x1b[33m\x1b[1m${info.tunnelPassword}\x1b[0m 👈`);
-      console.log('     (Chỉ cần dán dãy số IP này vào và nhấn "Click to Submit" là xong)');
     }
   }
 
-  if (CUSTOM_DOMAIN && info.mode !== 'localtunnel') {
-    console.log('');
-    console.log('  🌐 TÊN MIỀN RIÊNG:');
-    console.log(`     👉 \x1b[36m\x1b[1mhttps://${CUSTOM_DOMAIN}\x1b[0m`);
-  }
-
   console.log('');
-  console.log('  🏠 LINK WI-FI NỘI BỘ VĂN PHÒNG (Dùng cùng Wi-Fi không cần password):');
+  console.log('  🏠 LINK WI-FI NỘI BỘ VĂN PHÒNG (Dùng cùng Wi-Fi):');
   console.log(`     👉 http://${getLocalIp()}:${PORT}`);
   console.log('');
   console.log('  💻 LINK TRÊN MÁY TÍNH CỦA BẠN (DJ MASTER):');
@@ -169,17 +140,28 @@ async function startAll() {
   });
 
   let tunnelProcess = null;
-  let onlineUrl = '';
 
-  // 1. Localtunnel mode (Default)
-  if (TUNNEL_MODE === 'localtunnel') {
-    console.log(`⏳ Đang kết nối Localtunnel miễn phí (subdomain: ${LT_SUBDOMAIN})...`);
-    const tunnelPassword = await getPublicIp();
+  // 1. Cloudflare mode (Default - Named Tunnel ai-core-music)
+  if (TUNNEL_MODE === 'cloudflare') {
+    console.log(`⏳ Đang kết nối Cloudflare Tunnel (https://${CUSTOM_DOMAIN})...`);
+    tunnelProcess = spawn('cloudflared', ['tunnel', 'run', 'ai-core-music'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
+    tunnelProcess.on('error', (err) => {
+      console.warn('⚠️ Không thể khởi động cloudflared tunnel:', err.message);
+    });
+
+    // Show banner after brief connection delay
+    setTimeout(() => {
+      printSuccessBanner({ onlineUrl: `https://${CUSTOM_DOMAIN}`, mode: 'cloudflare' });
+    }, 2500);
+
+  // 2. Localtunnel mode
+  } else if (TUNNEL_MODE === 'localtunnel') {
+    console.log(`⏳ Đang kết nối Localtunnel (subdomain: ${LT_SUBDOMAIN})...`);
     const ltArgs = ['--yes', 'localtunnel', '--port', PORT];
-    if (LT_SUBDOMAIN) {
-      ltArgs.push('--subdomain', LT_SUBDOMAIN);
-    }
+    if (LT_SUBDOMAIN) ltArgs.push('--subdomain', LT_SUBDOMAIN);
 
     tunnelProcess = spawn('npx', ltArgs, {
       cwd: rootDir,
@@ -187,80 +169,20 @@ async function startAll() {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    tunnelProcess.stdout?.on('data', (chunk) => {
-      const text = chunk.toString();
-      const match = text.match(/https:\/\/[^\s]+/);
-      if (match) {
-        onlineUrl = match[0].trim();
-        printSuccessBanner({ onlineUrl, tunnelPassword, mode: 'localtunnel' });
-      }
-    });
-
-    tunnelProcess.stderr?.on('data', (chunk) => {
-      const text = chunk.toString();
-      if (!text.includes('npm notice') && !text.includes('npm warn')) {
-        console.warn('⚠️ Localtunnel info:', text.trim());
-      }
-    });
-
-    tunnelProcess.on('error', (err) => {
-      console.warn('⚠️ Không thể khởi động localtunnel:', err.message);
-    });
-
     setTimeout(() => {
-      if (!onlineUrl) {
-        onlineUrl = `https://${LT_SUBDOMAIN}.loca.lt`;
-        printSuccessBanner({ onlineUrl, tunnelPassword, mode: 'localtunnel' });
-      }
-    }, 4500);
-
-  // 2. Cloudflare mode
-  } else if (TUNNEL_MODE === 'cloudflare') {
-    console.log('⏳ Đang kết nối Cloudflare Tunnel (Quick Tunnel)...');
-    tunnelProcess = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${PORT}`], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    tunnelProcess.stderr?.on('data', (chunk) => {
-      const text = chunk.toString();
-      const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
-      if (match && !onlineUrl) {
-        onlineUrl = match[0].trim();
-        printSuccessBanner({ onlineUrl, mode: 'cloudflare' });
-      }
-    });
-
-    tunnelProcess.on('error', (err) => {
-      console.warn('⚠️ Không thể khởi động cloudflared:', err.message);
-    });
-
-    setTimeout(() => {
-      if (!onlineUrl) {
-        printSuccessBanner({ onlineUrl: 'Đang kết nối Cloudflare...', mode: 'cloudflare' });
-      }
-    }, 5000);
+      printSuccessBanner({ onlineUrl: `https://${LT_SUBDOMAIN}.loca.lt`, mode: 'localtunnel' });
+    }, 3500);
 
   // 3. Ngrok mode
   } else if (TUNNEL_MODE === 'ngrok') {
-    console.log(`⏳ Đang kết nối Ngrok (${NGROK_DOMAIN || 'random'})...`);
-    const ngrokArgs = NGROK_DOMAIN 
-      ? ['http', `--url=${NGROK_DOMAIN}`, PORT] 
-      : ['http', PORT];
-
-    tunnelProcess = spawn('ngrok', ngrokArgs, {
-      stdio: 'inherit',
-    });
-
-    tunnelProcess.on('error', (err) => {
-      console.warn('⚠️ Không thể khởi động ngrok:', err.message);
-    });
-
+    console.log(`⏳ Đang kết nối Ngrok...`);
+    const ngrokArgs = NGROK_DOMAIN ? ['http', `--url=${NGROK_DOMAIN}`, PORT] : ['http', PORT];
+    tunnelProcess = spawn('ngrok', ngrokArgs, { stdio: 'inherit' });
     setTimeout(() => {
-      onlineUrl = NGROK_DOMAIN ? `https://${NGROK_DOMAIN}` : '';
-      printSuccessBanner({ onlineUrl, mode: 'ngrok' });
+      printSuccessBanner({ onlineUrl: NGROK_DOMAIN ? `https://${NGROK_DOMAIN}` : '', mode: 'ngrok' });
     }, 2500);
 
-  // 4. LAN / Local only
+  // 4. LAN mode only
   } else {
     setTimeout(() => {
       printSuccessBanner({ mode: 'lan' });
