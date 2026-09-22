@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Core music 🎵 • Trạm phát nhạc tạm nghỉ</title>
+  <link rel="icon" type="image/png" href="client/public/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=IBM+Plex+Mono:wght@500;600&family=Pacifico&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: linear-gradient(135deg, #fffcef 0%, #ffe4e6 45%, #e0e7ff 100%);
+      color: #25385b;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background blobs inside fixed container to prevent scroll */
+    .bg-blobs {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .blob-1 {
+      position: absolute;
+      top: -80px;
+      left: -80px;
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(254, 215, 170, 0.6) 0%, rgba(255, 255, 255, 0) 70%);
+      border-radius: 50%;
+    }
+
+    .blob-2 {
+      position: absolute;
+      bottom: -100px;
+      right: -80px;
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle, rgba(199, 210, 254, 0.7) 0%, rgba(255, 255, 255, 0) 70%);
+      border-radius: 50%;
+    }
+
+    .container {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 2px solid #25385b;
+      border-radius: 26px;
+      padding: 30px 28px 24px;
+      text-align: center;
+      box-shadow: 6px 6px 0px #25385b;
+      transition: transform 0.2s ease;
+    }
+
+    /* Pulsing status pill */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      background: #fff1f2;
+      border: 1.5px solid #25385b;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #e11d48;
+      margin-bottom: 16px;
+      box-shadow: 2px 2px 0px #25385b;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e11d48;
+      position: relative;
+    }
+
+    .status-dot::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      background: #e11d48;
+      opacity: 0.4;
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    .logo-box {
+      width: 70px;
+      height: 70px;
+      margin: 0 auto 14px;
+      border-radius: 20px;
+      background: #fff;
+      border: 2px solid #25385b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 3px 3px 0px #25385b;
+      font-size: 34px;
+    }
+
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 25px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 4px;
+      color: #25385b;
+    }
+
+    .tagline {
+      font-family: 'Dancing Script', 'Pacifico', cursive;
+      font-size: 23px;
+      font-weight: 700;
+      color: #3252f4;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    p.desc {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #64748b;
+      margin-bottom: 18px;
+      padding: 0 4px;
+    }
+
+    /* Info grid box */
+    .info-box {
+      background: #fffcef;
+      border: 1.5px solid #25385b;
+      border-radius: 16px;
+      padding: 12px 16px;
+      text-align: left;
+      margin-bottom: 20px;
+      box-shadow: 2px 2px 0px #25385b;
+    }
+
+    .info-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+      color: #25385b;
+      margin-bottom: 8px;
+    }
+
+    .info-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      background: #ffe4e6;
+      border: 1px solid #25385b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      shrink-0: 0;
+    }
+
+    .info-row strong {
+      font-weight: 700;
+    }
+
+    /* Action button */
+    .btn-reload {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      background: #3252f4;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 13px 24px;
+      border-radius: 16px;
+      text-decoration: none;
+      border: 2px solid #25385b;
+      box-shadow: 4px 4px 0px #25385b;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      font-family: inherit;
+    }
+
+    .btn-reload:hover {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px #25385b;
+      background: #2544db;
+    }
+
+    .btn-reload:active {
+      transform: translate(4px, 4px);
+      box-shadow: 0px 0px 0px #25385b;
+    }
+
+    .live-status {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 14px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 11.5px;
+      color: #84849c;
+    }
+
+    footer a {
+      color: #25385b;
+      font-weight: 700;
+      text-decoration: none;
+      border-bottom: 1.5px dashed #25385b;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-blobs">
+    <div class="blob-1"></div>
+    <div class="blob-2"></div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <!-- Status Badge -->
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>DJ Station Đang Tạm Nghỉ</span>
+      </div>
+
+      <!-- Center Logo Box -->
+      <div class="logo-box">
+        🎧
+      </div>
+
+      <!-- Titles -->
+      <h1>AI Core music</h1>
+      <span class="tagline">Trạm phát nhạc & Order bài văn phòng</span>
+
+      <p class="desc">
+        Máy tính phát nhạc DJ hiện chưa khởi chạy hoặc văn phòng đang ngoài giờ làm việc. Khi trạm phát nhạc bật, hệ thống sẽ tự động sẵn sàng đón bạn!
+      </p>
+
+      <!-- Office info box -->
+      <div class="info-box">
+        <div class="info-row">
+          <div class="info-icon">🕒</div>
+          <div>Giờ hoạt động: <strong>Thứ 2 – Thứ 6 (8:30 – 18:00)</strong></div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon">🎵</div>
+          <div>YouTube Queue Realtime • Giao diện Recess Sunset</div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon">☕</div>
+          <div>Cùng nhau order nhạc, thả biểu cảm & chill làm việc</div>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <button class="btn-reload" onclick="checkConnection()">
+        <span id="btn-icon">🔄</span>
+        <span id="btn-text">Thử kết nối lại ngay</span>
+      </button>
+
+      <div class="live-status" id="live-hint">
+        Tự động kiểm tra tín hiệu mỗi 10 giây...
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      Hệ thống phát nhạc nội bộ AI Core • Thiết kế bởi <a href="https://lpsang.id.vn/" target="_blank">Le Phuoc Sang</a>
+    </footer>
+  </div>
+
+  <script>
+    // Tự động kiểm tra xem trạm phát nhạc đã bật chưa, nếu bật rồi thì tự động vào luôn!
+    async function checkConnection() {
+      const btnText = document.getElementById('btn-text');
+      const btnIcon = document.getElementById('btn-icon');
+      const liveHint = document.getElementById('live-hint');
+      
+      btnText.textContent = 'Đang kiểm tra trạm phát...';
+      btnIcon.textContent = '⏳';
+
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          liveHint.textContent = '🎉 Trạm phát nhạc đã bật! Đang chuyển hướng...';
+          liveHint.style.color = '#10b981';
+          setTimeout(() => location.reload(), 500);
+          return;
+        }
+      } catch (e) {}
+
+      setTimeout(() => {
+        btnText.textContent = 'Trạm nhạc chưa bật, thử lại';
+        btnIcon.textContent = '🔄';
+        liveHint.textContent = 'Trạm nhạc vẫn đang tắt. Hãy thử lại sau nhé!';
+      }, 800);
+    }
+
+    // Tự động ping định kỳ mỗi 10s
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(2000) });
+        if (res.ok) {
+          location.reload();
+        }
+      } catch (e) {}
+    }, 10000);
+  </script>
+</body>
+</html>

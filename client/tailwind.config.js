@@ -77,7 +77,7 @@ export default {
       fontFamily: {
         sans: ['DM Sans', 'Space Grotesk', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
         runde: ['Space Grotesk', 'DM Sans', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
-        script: ['Caveat', 'Pacifico', 'cursive', 'sans-serif'],
+        script: ['Dancing Script', 'Pacifico', 'cursive', 'sans-serif'],
         mono: ['IBM Plex Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       borderRadius: {
