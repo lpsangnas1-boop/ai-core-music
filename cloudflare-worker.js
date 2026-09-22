@@ -5,11 +5,23 @@
 
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
     try {
       const response = await fetch(request);
 
-      // Nếu Cloudflare Tunnel chưa kết nối (trả về 502, 503, 504 hoặc mã 1033)
+      // Nếu Cloudflare Tunnel chưa kết nối (trả về 502, 503, 504 hoặc lỗi 1033)
       if ([502, 503, 504].includes(response.status)) {
+        if (url.pathname.startsWith('/api/')) {
+          return new Response(JSON.stringify({ status: 'offline', online: false }), {
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              'Cache-Control': 'no-store',
+            },
+          });
+        }
+
         return new Response(OFFLINE_HTML, {
           status: 200,
           headers: {
@@ -21,6 +33,16 @@ export default {
 
       return response;
     } catch (err) {
+      if (url.pathname.startsWith('/api/')) {
+        return new Response(JSON.stringify({ status: 'offline', online: false }), {
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+
       return new Response(OFFLINE_HTML, {
         status: 200,
         headers: {
@@ -261,7 +283,8 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 
       try {
         const res = await fetch('/api/health?t=' + Date.now(), { cache: 'no-store' });
-        if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (res.ok && data && data.status === 'ok') {
           btnText.textContent = 'Đã kết nối! Đang tải nhạc...';
           btnIcon.textContent = '🎉';
           liveHint.textContent = 'Máy chủ DJ đã mở cửa! Đang vào hệ thống...';
@@ -282,7 +305,8 @@ const OFFLINE_HTML = `<!DOCTYPE html>
     setInterval(async () => {
       try {
         const res = await fetch('/api/health?t=' + Date.now(), { cache: 'no-store' });
-        if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (res.ok && data && data.status === 'ok') {
           window.location.reload();
         }
       } catch (e) {}
