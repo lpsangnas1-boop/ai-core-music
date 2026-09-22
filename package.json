@@ -16,7 +16,9 @@
     "build:server": "npm run build --workspace=server",
     "build:client": "npm run build --workspace=client",
     "start": "node server/dist/index.js",
-    "start:online": "node scripts/launcher.js"
+    "start:online": "node scripts/launcher.js",
+    "tunnel:lt": "npx localtunnel --port 8989 --subdomain aicoremusic",
+    "tunnel:cf": "cloudflared tunnel --url http://localhost:8989"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

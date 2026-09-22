@@ -90,76 +90,66 @@ npm start
 
 ---
 
-## 🌐 Hướng dẫn cấu hình & Chạy Online qua Ngrok (Khuyên dùng)
+## 🌐 Hướng dẫn phát Online ra Internet (Localtunnel / Cloudflare / Ngrok)
 
-> [!TIP]
-> **Vì sao nên dùng Ngrok?**
-> - **Vượt qua giới hạn Wi-Fi văn phòng**: Khắc phục triệt để tính năng *Client Isolation / AP Isolation* của router công ty (chặn các thiết bị nội bộ kết nối trực tiếp với nhau).
-> - **Dùng 4G/5G thoải mái**: Đồng nghiệp không bắt buộc phải kết nối chung Wi-Fi; dùng 4G, mạng khác hoặc làm việc từ xa (WFH) đều order bài được.
-> - **Bảo mật HTTPS**: Ngrok cung cấp link HTTPS an toàn, có hỗ trợ WebSocket cho Socket.IO hoạt động realtime.
-> - **Không cần mở cổng Router (Port Forwarding)** hay can thiệp vào tường lửa văn phòng.
-
-### 🛠️ Các bước thiết lập Ngrok (Chỉ làm 1 lần đầu)
-
-#### Bước 1: Đăng ký tài khoản Ngrok miễn phí
-1. Truy cập [https://ngrok.com](https://ngrok.com) và bấm **Sign Up Free** (có thể đăng nhập nhanh bằng tài khoản Google hoặc GitHub).
-
-#### Bước 2: Cài đặt Ngrok trên máy tính DJ (Windows)
-Bạn có thể cài đặt bằng một trong hai cách:
-- **Cách A (Nhanh nhất qua PowerShell)**:
-  ```powershell
-  winget install ngrok
-  ```
-- **Cách B (Tải file nén thủ công)**:
-  1. Vào [https://ngrok.com/download](https://ngrok.com/download) và tải file ZIP cho Windows.
-  2. Giải nén được file `ngrok.exe`.
-  3. Copy file `ngrok.exe` vào thư mục dự án hoặc thêm vào biến môi trường `PATH` của máy tính.
-
-#### Bước 3: Kích hoạt Authtoken
-1. Đăng nhập vào Ngrok Dashboard, vào trang [Your Authtoken](https://dashboard.ngrok.com/get-started/your-authtoken).
-2. Sao chép mã token và chạy lệnh sau trong PowerShell / Terminal:
-   ```bash
-   ngrok config add-authtoken <YOUR_AUTHTOKEN>
-   ```
-
-#### Bước 4: Lấy Static Domain miễn phí (Khuyến nghị để cố định link)
-Mỗi tài khoản Ngrok miễn phí được tặng **1 domain cố định vĩnh viễn**:
-1. Trên dashboard Ngrok, vào menu **Cloud Edge** ➔ **Domains**.
-2. Nhấn **Create Domain** (hoặc copy tên miền đã được cấp sẵn, ví dụ: `duo-stagnant-elbow.ngrok-free.dev` hoặc `your-subdomain.ngrok-free.app`).
-3. Mở file [scripts/launcher.js](file:///scripts/launcher.js), điền domain của bạn vào dòng:
-   ```javascript
-   const NGROK_DOMAIN = 'ten-mien-cua-ban.ngrok-free.dev';
-   ```
+Khi phát nhạc trong văn phòng, dùng tunnel online giúp **vượt qua tính năng Client Isolation của Wi-Fi công ty** và cho phép mọi người dùng **4G/5G** đều order bài hát được mà không cần cấu hình Router hay mở cổng mạng.
 
 ---
 
-### 🚀 Cách khởi chạy cùng Ngrok
+### ⭐ Giải pháp 1: Localtunnel qua `npx` (Mặc định - Khuyên dùng)
 
-#### Cách 1: 1-Click tự động (Khuyên dùng)
-Nhấp đúp chuột vào file **`start-music.bat`** tại thư mục gốc (hoặc chạy lệnh terminal):
-```bash
-npm run start:online
-```
+> [!TIP]
+> **Ưu điểm vượt trội**:
+> - **Hoàn toàn MIỄN PHÍ, KHÔNG GIỚI HẠN REQUEST**. (Không bao giờ bị lỗi `ERR_NGROK_727` như Ngrok).
+> - **Không cần cài đặt thêm phần mềm**, không cần đăng ký tài khoản. Chỉ cần máy tính có Node.js là chạy được ngay qua lệnh `npx`.
+
+#### 1. Chạy tự động 1-Click (Đã tích hợp sẵn):
+Nhấp đúp chuột vào file **`start-music.bat`** (hoặc chạy `npm run start:online`).
 Hệ thống sẽ tự động:
-1. Chạy server Node.js (cổng `8989`).
-2. Mở tunnel Ngrok với domain cố định của bạn.
-3. In link công khai ra màn hình và tự động mở trình duyệt vào trang DJ!
+1. Chạy server Jukebox (cổng `8989`).
+2. Tự động kết nối Localtunnel với subdomain `aicoremusic`.
+3. Tự động lấy **mật khẩu bảo mật** (Tunnel Password - IP công khai của máy chủ) và in rõ ràng lên màn hình!
 
-#### Cách 2: Chạy thủ công bằng 2 terminal
-Nếu muốn kiểm soát độc lập từng tiến trình:
-- **Terminal 1** (Chạy server):
-  ```bash
-  npm start
-  ```
-- **Terminal 2** (Mở tunnel Ngrok trỏ về port 8989):
-  ```bash
-  # Nếu có Static Domain cố định:
-  ngrok http --url=ten-mien-cua-ban.ngrok-free.app 8989
+#### 2. Chạy thủ công qua Terminal:
+Nếu muốn chạy riêng tunnel bằng lệnh:
+```bash
+npx localtunnel --port 8989 --subdomain aicoremusic
+```
+- Link truy cập: `https://aicoremusic.loca.lt`
+- **Mật khẩu Tunnel (Khi mở lần đầu trên điện thoại)**: Localtunnel sẽ hiện một trang bảo mật yêu cầu nhập *Tunnel Password* (chính là địa chỉ IP công khai của máy DJ). Bạn lấy số này bằng cách mở: [https://localtunnel.me/mytunnelpassword](https://localtunnel.me/mytunnelpassword), copy dãy số và bấm Submit là vào nghe/order nhạc bình thường.
 
-  # Hoặc nếu dùng domain ngẫu nhiên:
-  ngrok http 8989
-  ```
-- Copy đường dẫn `https://xxxx.ngrok-free.app` hiển thị ở dòng **Forwarding** và gửi cho đồng nghiệp.
+---
+
+### ⭐ Giải pháp 2: Cloudflare Tunnel (`cloudflared`)
+
+Miễn phí 100%, không giới hạn request/băng thông, tốc độ server tại Việt Nam cực nhanh:
+
+1. **Cài đặt**: Chạy PowerShell `winget install --id Cloudflare.cloudflared` (hoặc tải file `cloudflared.exe`).
+2. **Khởi chạy Quick Tunnel**:
+   ```bash
+   npm run tunnel:cf
+   # hoặc: cloudflared tunnel --url http://localhost:8989
+   ```
+3. Copy link dạng `https://xxxx.trycloudflare.com` hiển thị trên terminal gửi cho mọi người.
+
+---
+
+### ⭐ Giải pháp 3: Ngrok
+
+Nếu bạn có tài khoản Ngrok:
+1. Đăng ký tại [ngrok.com](https://ngrok.com), lấy token: `ngrok config add-authtoken <TOKEN>`.
+2. Chạy: `ngrok http 8989`.
+*(Lưu ý: Tài khoản Ngrok Free giới hạn 20.000 requests/tháng).*
+
+---
+
+### ⚙️ Chuyển đổi giữa các loại Tunnel trong file `.env`:
+Bạn có thể dễ dàng đổi loại tunnel trong file `.env` ở thư mục gốc:
+```env
+# Chọn một trong các chế độ: localtunnel | cloudflare | ngrok | none (chỉ LAN)
+TUNNEL_MODE=localtunnel
+LT_SUBDOMAIN=aicoremusic
+```
 
 ---
 

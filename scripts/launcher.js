@@ -28,7 +28,9 @@ function loadEnv() {
 loadEnv();
 
 const PORT = process.env.PORT || '8989';
-const NGROK_DOMAIN = process.env.NGROK_DOMAIN || 'duo-stagnant-elbow.ngrok-free.dev';
+const TUNNEL_MODE = (process.env.TUNNEL_MODE || 'localtunnel').toLowerCase();
+const LT_SUBDOMAIN = process.env.LT_SUBDOMAIN || 'aicoremusic';
+const NGROK_DOMAIN = process.env.NGROK_DOMAIN || '';
 const CUSTOM_DOMAIN = process.env.CUSTOM_DOMAIN || 'music.lpsang.id.vn';
 
 function getLocalIp() {
@@ -41,6 +43,22 @@ function getLocalIp() {
     }
   }
   return 'localhost';
+}
+
+async function getPublicIp() {
+  try {
+    const res = await fetch('https://localtunnel.me/mytunnelpassword', {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) return (await res.text()).trim();
+  } catch (e) {}
+  try {
+    const res = await fetch('https://api.ipify.org', {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) return (await res.text()).trim();
+  } catch (e) {}
+  return 'Xem tại https://localtunnel.me/mytunnelpassword';
 }
 
 function runBuild() {
@@ -86,6 +104,51 @@ async function ensureBuild() {
   }
 }
 
+let bannerPrinted = false;
+function printSuccessBanner(info = {}) {
+  if (bannerPrinted) return;
+  bannerPrinted = true;
+
+  console.log('\n===============================================================');
+  console.log('  🎉 AI CORE MÚ SỊC ĐÃ HOẠT ĐỘNG SẴN SÀNG! 🎧🤖');
+  console.log('===============================================================');
+  console.log('');
+
+  if (info.onlineUrl) {
+    console.log(`  🌐 LINK ONLINE (${(info.mode || 'INTERNET').toUpperCase()} - MIỄN PHÍ KHÔNG GIỚI HẠN):`);
+    console.log(`     👉 \x1b[32m\x1b[1m${info.onlineUrl}\x1b[0m 👈`);
+    console.log('     (Gửi link này cho đồng nghiệp dùng 4G/5G/Wi-Fi order nhạc)');
+
+    if (info.tunnelPassword) {
+      console.log('');
+      console.log('  🔑 MẬT KHẨU BẢO MẬT TUNNEL (Khi mở lần đầu trên điện thoại hỏi password):');
+      console.log(`     👉 \x1b[33m\x1b[1m${info.tunnelPassword}\x1b[0m 👈`);
+      console.log('     (Chỉ cần dán dãy số IP này vào và nhấn "Click to Submit" là xong)');
+    }
+  }
+
+  if (CUSTOM_DOMAIN && info.mode !== 'localtunnel') {
+    console.log('');
+    console.log('  🌐 TÊN MIỀN RIÊNG:');
+    console.log(`     👉 \x1b[36m\x1b[1mhttps://${CUSTOM_DOMAIN}\x1b[0m`);
+  }
+
+  console.log('');
+  console.log('  🏠 LINK WI-FI NỘI BỘ VĂN PHÒNG (Dùng cùng Wi-Fi không cần password):');
+  console.log(`     👉 http://${getLocalIp()}:${PORT}`);
+  console.log('');
+  console.log('  💻 LINK TRÊN MÁY TÍNH CỦA BẠN (DJ MASTER):');
+  console.log(`     👉 http://localhost:${PORT}`);
+  console.log('');
+  console.log('  📌 LƯU Ý: Giữ cửa sổ này mở trong suốt lúc phát nhạc.');
+  console.log('===============================================================\n');
+
+  // Open browser to DJ master panel
+  try {
+    spawn('cmd', ['/c', 'start', `http://localhost:${PORT}`], { detached: true, stdio: 'ignore' });
+  } catch (e) {}
+}
+
 async function startAll() {
   const serverScript = path.join(rootDir, 'server', 'dist', 'index.js');
 
@@ -105,65 +168,114 @@ async function startAll() {
     }
   });
 
-  // Start Ngrok Tunnel
-  console.log(`⏳ Đang kết nối tên miền Ngrok (${NGROK_DOMAIN})...`);
-  const ngrokArgs = NGROK_DOMAIN 
-    ? ['http', `--url=${NGROK_DOMAIN}`, PORT] 
-    : ['http', PORT];
+  let tunnelProcess = null;
+  let onlineUrl = '';
 
-  const ngrokProcess = spawn('ngrok', ngrokArgs, {
-    stdio: 'inherit',
-  });
+  // 1. Localtunnel mode (Default)
+  if (TUNNEL_MODE === 'localtunnel') {
+    console.log(`⏳ Đang kết nối Localtunnel miễn phí (subdomain: ${LT_SUBDOMAIN})...`);
+    const tunnelPassword = await getPublicIp();
 
-  ngrokProcess.on('error', (err) => {
-    console.warn('⚠️ Không thể khởi động ngrok (kiểm tra ngrok đã cài đặt chưa):', err.message);
-  });
+    const ltArgs = ['--yes', 'localtunnel', '--port', PORT];
+    if (LT_SUBDOMAIN) {
+      ltArgs.push('--subdomain', LT_SUBDOMAIN);
+    }
 
-  // Display banner after short wait
-  setTimeout(() => {
-    printSuccessBanner();
-  }, 2500);
+    tunnelProcess = spawn('npx', ltArgs, {
+      cwd: rootDir,
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    tunnelProcess.stdout?.on('data', (chunk) => {
+      const text = chunk.toString();
+      const match = text.match(/https:\/\/[^\s]+/);
+      if (match) {
+        onlineUrl = match[0].trim();
+        printSuccessBanner({ onlineUrl, tunnelPassword, mode: 'localtunnel' });
+      }
+    });
+
+    tunnelProcess.stderr?.on('data', (chunk) => {
+      const text = chunk.toString();
+      if (!text.includes('npm notice') && !text.includes('npm warn')) {
+        console.warn('⚠️ Localtunnel info:', text.trim());
+      }
+    });
+
+    tunnelProcess.on('error', (err) => {
+      console.warn('⚠️ Không thể khởi động localtunnel:', err.message);
+    });
+
+    setTimeout(() => {
+      if (!onlineUrl) {
+        onlineUrl = `https://${LT_SUBDOMAIN}.loca.lt`;
+        printSuccessBanner({ onlineUrl, tunnelPassword, mode: 'localtunnel' });
+      }
+    }, 4500);
+
+  // 2. Cloudflare mode
+  } else if (TUNNEL_MODE === 'cloudflare') {
+    console.log('⏳ Đang kết nối Cloudflare Tunnel (Quick Tunnel)...');
+    tunnelProcess = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${PORT}`], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    tunnelProcess.stderr?.on('data', (chunk) => {
+      const text = chunk.toString();
+      const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+      if (match && !onlineUrl) {
+        onlineUrl = match[0].trim();
+        printSuccessBanner({ onlineUrl, mode: 'cloudflare' });
+      }
+    });
+
+    tunnelProcess.on('error', (err) => {
+      console.warn('⚠️ Không thể khởi động cloudflared:', err.message);
+    });
+
+    setTimeout(() => {
+      if (!onlineUrl) {
+        printSuccessBanner({ onlineUrl: 'Đang kết nối Cloudflare...', mode: 'cloudflare' });
+      }
+    }, 5000);
+
+  // 3. Ngrok mode
+  } else if (TUNNEL_MODE === 'ngrok') {
+    console.log(`⏳ Đang kết nối Ngrok (${NGROK_DOMAIN || 'random'})...`);
+    const ngrokArgs = NGROK_DOMAIN 
+      ? ['http', `--url=${NGROK_DOMAIN}`, PORT] 
+      : ['http', PORT];
+
+    tunnelProcess = spawn('ngrok', ngrokArgs, {
+      stdio: 'inherit',
+    });
+
+    tunnelProcess.on('error', (err) => {
+      console.warn('⚠️ Không thể khởi động ngrok:', err.message);
+    });
+
+    setTimeout(() => {
+      onlineUrl = NGROK_DOMAIN ? `https://${NGROK_DOMAIN}` : '';
+      printSuccessBanner({ onlineUrl, mode: 'ngrok' });
+    }, 2500);
+
+  // 4. LAN / Local only
+  } else {
+    setTimeout(() => {
+      printSuccessBanner({ mode: 'lan' });
+    }, 1500);
+  }
 
   function cleanup() {
     console.log('\n🛑 Đang tắt hệ thống...');
     try { serverProcess.kill(); } catch (e) {}
-    try { ngrokProcess.kill(); } catch (e) {}
+    try { if (tunnelProcess) tunnelProcess.kill(); } catch (e) {}
     process.exit(0);
   }
 
   process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
-}
-
-function printSuccessBanner() {
-  console.log('\n===============================================================');
-  console.log('  🎉 AI CORE MÚ SỊC ĐÃ HOẠT ĐỘNG SẴN SÀNG! 🎧🤖');
-  console.log('===============================================================');
-  console.log('');
-  if (CUSTOM_DOMAIN) {
-    console.log('  🌐 TÊN MIỀN RIÊNG:');
-    console.log(`     👉 \x1b[32m\x1b[1mhttps://${CUSTOM_DOMAIN}\x1b[0m 👈`);
-  }
-  if (NGROK_DOMAIN) {
-    console.log('  🌐 TÊN MIỀN NGROK:');
-    console.log(`     👉 \x1b[36m\x1b[1mhttps://${NGROK_DOMAIN}\x1b[0m`);
-    console.log('     (Gửi link này cho đồng nghiệp dùng 4G/5G/Wi-Fi order nhạc)');
-  }
-  console.log('');
-  console.log('  🏠 LINK WI-FI NỘI BỘ VĂN PHÒNG:');
-  console.log(`     👉 http://${getLocalIp()}:${PORT}`);
-  console.log('');
-  console.log('  💻 LINK TRÊN MÁY TÍNH CỦA BẠN (DJ MASTER):');
-  console.log(`     👉 http://localhost:${PORT}`);
-  console.log('');
-  console.log('  📌 LƯU Ý: Giữ cửa sổ này mở trong suốt lúc phát nhạc.');
-  console.log('===============================================================\n');
-
-  // Open browser automatically to DJ Master panel
-  try {
-    const targetUrl = NGROK_DOMAIN ? `https://${NGROK_DOMAIN}` : `http://localhost:${PORT}`;
-    spawn('cmd', ['/c', 'start', targetUrl], { detached: true, stdio: 'ignore' });
-  } catch (e) {}
 }
 
 async function main() {
