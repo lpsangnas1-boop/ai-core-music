@@ -10,8 +10,8 @@ export default {
     try {
       const response = await fetch(request);
 
-      // Nếu Cloudflare Tunnel chưa kết nối (trả về 502, 503, 504 hoặc lỗi 1033)
-      if ([502, 503, 504].includes(response.status)) {
+      // Nếu server chưa bật hoặc Cloudflare Tunnel chưa kết nối (Error 1033 có mã 530, hoặc 502, 503, 504)
+      if (response.status >= 500) {
         if (url.pathname.startsWith('/api/')) {
           return new Response(JSON.stringify({ status: 'offline', online: false }), {
             status: 503,
