@@ -144,7 +144,7 @@ async function startAll() {
   // 1. Cloudflare mode (Default - Named Tunnel ai-core-music)
   if (TUNNEL_MODE === 'cloudflare') {
     console.log(`⏳ Đang kết nối Cloudflare Tunnel (https://${CUSTOM_DOMAIN})...`);
-    tunnelProcess = spawn('cloudflared', ['tunnel', 'run', 'ai-core-music'], {
+    tunnelProcess = spawn('cloudflared', ['tunnel', '--protocol', 'http2', 'run', 'ai-core-music'], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
