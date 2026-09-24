@@ -9,9 +9,13 @@ import type {
   VoteSkipState,
   SearchResultItem,
 } from '../types/index.js';
-
 const API_BASE = '/api';
 
+/** Fired when a request carrying the stored admin PIN is rejected (PIN changed or wrong). */
+export const ADMIN_UNAUTHORIZED_EVENT = 'jukebox:admin-unauthorized';
+
+// The admin PIN is sent only when a caller passes it explicitly (admin actions),
+// never implicitly on every request.
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -20,7 +24,7 @@ async function request<T>(
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
 
-  const effectivePin = adminPin || (typeof localStorage !== 'undefined' ? localStorage.getItem('office_jukebox_admin_pin') : null);
+  const effectivePin = adminPin;
   if (effectivePin) {
     headers.set('x-admin-pin', effectivePin);
   }
@@ -30,10 +34,27 @@ async function request<T>(
     headers,
   });
 
-  const data = await response.json();
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    // Non-JSON body, e.g. a tunnel error page when the server is down
+  }
 
-  if (!response.ok || data.success === false) {
-    throw new Error(data.error || data.message || `Request failed with status ${response.status}`);
+  // The server accepted the request but ignored a stale PIN (e.g. a song order)
+  if (data?.adminPinRejected && effectivePin) {
+    window.dispatchEvent(new CustomEvent(ADMIN_UNAUTHORIZED_EVENT));
+  }
+
+  if (!response.ok || !data || data.success === false) {
+    if (response.status === 401 && effectivePin) {
+      window.dispatchEvent(new CustomEvent(ADMIN_UNAUTHORIZED_EVENT));
+    }
+    const fallback =
+      response.status >= 502 && response.status <= 504
+        ? 'Không kết nối được tới máy chủ nhạc. Vui lòng thử lại sau.'
+        : `Request failed with status ${response.status}`;
+    throw new Error(data?.error || data?.message || fallback);
   }
 
   return data.data !== undefined ? data.data : data;
@@ -137,6 +158,8 @@ export const api = {
     ),
 
   // Auth
+  verifyStoredPin: (pin: string) =>
+    request<{ success: boolean; isAdmin: boolean }>('/admin/verify', {}, pin),
   verifyAdmin: (pin: string) =>
     request<{ success: boolean; message?: string }>('/admin/login', {
       method: 'POST',

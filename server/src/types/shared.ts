@@ -2,6 +2,9 @@ export type PlaybackStatus = 'idle' | 'playing' | 'paused' | 'buffering' | 'ende
 
 export type QueueItemStatus = 'queued' | 'playing' | 'played' | 'removed';
 
+/** Which kind of client is producing audio: an embedded IFrame player or a youtube.com tab. */
+export type MasterKind = 'embedded' | 'youtube-tab';
+
 export interface BaseSong {
   id: string;
   youtubeId: string;
@@ -13,7 +16,8 @@ export interface BaseSong {
 
 export interface QueueItem extends BaseSong {
   requesterName: string;
-  requesterDeviceId: string;
+  /** Non-reversible hash of the requester's device id (see deviceKey). */
+  requesterKey: string;
   status: QueueItemStatus;
   position: number;
   createdAt: string;
@@ -57,6 +61,7 @@ export interface JukeboxSettings {
   maxRequestsPerDevice: number;
   loopDefaultPlaylist: boolean;
   showRequesterNames: boolean;
+  /** Play the default playlist when the queue is empty (embedded players only). */
   autoPlay: boolean;
   volumeNormalization: boolean;
 }
@@ -85,7 +90,8 @@ export interface RequestHistoryItem {
   thumbnail: string;
   duration: number;
   requesterName: string;
-  requesterDeviceId: string;
+  /** Only present in the admin-only history endpoint. */
+  requesterDeviceId?: string;
   status: string;
   createdAt: string;
   playedAt: string;
@@ -103,6 +109,7 @@ export interface SearchResultItem {
 export interface VoteSkipState {
   count: number;
   required: number;
+  /** deviceKey() of each voter. */
   voters: string[];
 }
 
@@ -124,11 +131,25 @@ export interface DanmakuItem {
   duration: number; // Flight duration in seconds (e.g. 5 to 7s)
 }
 
+export interface MasterStatus {
+  /** Socket id of the client currently allowed to play and report playback. */
+  activeSocketId: string | null;
+  kind: MasterKind | null;
+}
+
+export interface MasterRegisterResult {
+  ok: boolean;
+  active?: boolean;
+  error?: string;
+  status?: MasterStatus;
+}
+
 // Socket Events
 export interface ServerToClientEvents {
   'player:state': (state: PlayerState) => void;
   'player:command': (command: { action: string; [key: string]: any }) => void;
   'player:vote_update': (voteState: VoteSkipState) => void;
+  'master:status': (status: MasterStatus) => void;
   'reaction:new': (reaction: ReactionItem) => void;
   'danmaku:new': (item: DanmakuItem) => void;
   'queue:update': (queue: QueueItem[]) => void;
@@ -140,7 +161,22 @@ export interface ServerToClientEvents {
   'error': (data: { message: string }) => void;
 }
 
+export interface SyncFromYouTubePayload {
+  youtubeId: string;
+  title?: string;
+  channel?: string;
+  thumbnail?: string;
+  currentTime?: number;
+  duration?: number;
+  status?: PlaybackStatus;
+}
+
 export interface ClientToServerEvents {
+  'master:register': (
+    data: { pin: string; kind: MasterKind; takeover?: boolean },
+    ack?: (result: MasterRegisterResult) => void
+  ) => void;
+  'master:release': () => void;
   'player:report_state': (data: {
     status: PlaybackStatus;
     currentTime: number;
@@ -150,6 +186,7 @@ export interface ClientToServerEvents {
   }) => void;
   'player:song_ended': () => void;
   'player:song_error': (data: { youtubeId: string; errorCode?: number }) => void;
-  'reaction:send': (data: { emoji: string; userName?: string; deviceId?: string }) => void;
+  'player:sync_from_youtube': (data: SyncFromYouTubePayload) => void;
+  'reaction:send': (data: { emoji: string; userName?: string }) => void;
   'danmaku:send': (data: { text: string; userName?: string; color?: string }) => void;
 }

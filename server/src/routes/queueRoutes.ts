@@ -12,16 +12,24 @@ import {
 import { fetchYouTubeMetadata, searchYouTube } from '../services/metadataService.js';
 import { playbackService } from '../services/playbackService.js';
 import { broadcastQueueUpdate, broadcastNewRequest } from '../socket/socketHandler.js';
-import { requireAdmin } from '../middleware/authMiddleware.js';
-import { config } from '../config.js';
+import { requireAdmin, requestClientIp } from '../middleware/authMiddleware.js';
+import { checkAdminPin, createRateLimiter } from '../security.js';
+
+// Searches scrape youtube.com; cap per client IP so one visitor cannot get the server blocked.
+const searchLimiter = createRateLimiter(60_000, 60);
 
 export const queueRouter = Router();
 
 // Public: Search YouTube videos by keyword
 queueRouter.get('/search', async (req: Request, res: Response) => {
-  const query = (req.query.q as string) || '';
+  const query = typeof req.query.q === 'string' ? req.query.q.slice(0, 200) : '';
   if (!query.trim()) {
     res.json({ success: true, data: [] });
+    return;
+  }
+  const limit = searchLimiter.hit(requestClientIp(req));
+  if (!limit.allowed) {
+    res.status(429).json({ success: false, error: `Tìm kiếm quá nhanh, thử lại sau ${limit.retryAfterSec}s` });
     return;
   }
   const results = await searchYouTube(query);
@@ -36,10 +44,10 @@ queueRouter.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// Public: Get song request history
+// Public: Get song request history (without device ids)
 queueRouter.get('/history', (req: Request, res: Response) => {
-  const limitParam = req.query.limit !== undefined ? parseInt(req.query.limit as string, 10) : 1000;
-  const limit = isNaN(limitParam) ? 1000 : limitParam;
+  const limitParam = parseInt(String(req.query.limit ?? '1000'), 10);
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 1000;
   res.json({
     success: true,
     data: getRequestHistory(limit),
@@ -48,8 +56,8 @@ queueRouter.get('/history', (req: Request, res: Response) => {
 
 // Public: Check request eligibility for a device
 queueRouter.get('/can-request', (req: Request, res: Response) => {
-  const deviceId = req.query.deviceId as string;
-  const status = canDeviceRequest(deviceId || '');
+  const deviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : '';
+  const status = canDeviceRequest(deviceId);
   res.json({
     success: true,
     data: status,
@@ -59,15 +67,22 @@ queueRouter.get('/can-request', (req: Request, res: Response) => {
 // Public / Admin: Submit a song request
 queueRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { url, requesterName, deviceId, shoutout } = req.body;
+    const { url, requesterName, deviceId, shoutout } = req.body ?? {};
 
-    if (!url) {
+    if (typeof url !== 'string' || !url) {
       res.status(400).json({ success: false, error: 'YouTube URL or Video ID is required' });
       return;
     }
 
-    const pinHeader = req.headers['x-admin-pin'] as string;
-    const isAdmin = pinHeader === config.adminPin;
+    // A PIN is optional here. A wrong/stale PIN (or a locked-out IP) never blocks ordering:
+    // the request is handled as a normal guest and the client is told to drop the PIN.
+    const pinHeader = req.headers['x-admin-pin'];
+    let isAdmin = false;
+    let adminPinRejected = false;
+    if (typeof pinHeader === 'string' && pinHeader) {
+      isAdmin = checkAdminPin(pinHeader, requestClientIp(req)).ok;
+      adminPinRejected = !isAdmin;
+    }
 
     // Fetch video metadata
     const metadata = await fetchYouTubeMetadata(url);
@@ -78,8 +93,8 @@ queueRouter.post('/', async (req: Request, res: Response) => {
     // Add to queue
     const { item, position } = addQueueItem(
       metadata,
-      requesterName || 'Guest',
-      deviceId || 'unknown',
+      typeof requesterName === 'string' ? requesterName : 'Guest',
+      typeof deviceId === 'string' && deviceId ? deviceId.slice(0, 100) : 'unknown',
       {
         isAdmin,
         currentPlayingYoutubeId: currentYoutubeId,
@@ -103,6 +118,7 @@ queueRouter.post('/', async (req: Request, res: Response) => {
         position,
         message: `Song added! You're #${position} in the queue.`,
       },
+      ...(adminPinRejected ? { adminPinRejected: true } : {}),
     });
   } catch (err: any) {
     res.status(400).json({
@@ -135,8 +151,8 @@ queueRouter.post('/:id/play-next', requireAdmin, (req: Request, res: Response) =
 
 // Admin: Reorder queue
 queueRouter.patch('/reorder', requireAdmin, (req: Request, res: Response) => {
-  const { orderedIds } = req.body;
-  if (!Array.isArray(orderedIds)) {
+  const orderedIds = req.body?.orderedIds;
+  if (!Array.isArray(orderedIds) || !orderedIds.every((id) => typeof id === 'string')) {
     res.status(400).json({ success: false, error: 'orderedIds must be an array of IDs' });
     return;
   }

@@ -52,25 +52,6 @@ app.use('/api/network', networkRouter);
 app.use('/api/history', historyRouter);
 app.use('/api/admin', authRouter);
 
-// Serve YouTube Tab Userscript Bridge
-app.get('/api/bridge/script.user.js', (_req: Request, res: Response) => {
-  const net = getNetworkInfo();
-  const scriptPath = path.resolve(__dirname, 'public/office-jukebox-bridge.user.js');
-  
-  if (fs.existsSync(scriptPath)) {
-    let content = fs.readFileSync(scriptPath, 'utf8');
-    // Inject the dynamic server LAN URL
-    content = content.replace(
-      "const SERVER_URL = window.__OFFICE_JUKEBOX_SERVER_URL__ || 'http://localhost:3000';",
-      `const SERVER_URL = window.__OFFICE_JUKEBOX_SERVER_URL__ || '${net.url}';`
-    );
-    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-    res.send(content);
-  } else {
-    res.status(404).send('// Bridge script not found');
-  }
-});
-
 // Health check
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
@@ -112,9 +93,11 @@ if (fs.existsSync(config.clientDistPath)) {
 // Global error handler
 app.use((err: any, _req: Request, res: Response, _next: any) => {
   console.error('[Server Error]', err);
-  res.status(500).json({
+  // Malformed JSON bodies are client errors; never leak internal error details.
+  const status = err?.type === 'entity.parse.failed' ? 400 : 500;
+  res.status(status).json({
     success: false,
-    error: err.message || 'Internal server error',
+    error: status === 400 ? 'Invalid request body' : 'Internal server error',
   });
 });
 
@@ -128,8 +111,15 @@ server.listen(config.port, config.host, () => {
   console.log(`  Local Access:   http://localhost:${config.port}`);
   console.log(`  LAN Access:     ${net.url}`);
   console.log(`  Admin Panel:    ${net.url}/admin`);
-  console.log(`  Admin PIN:      ${config.adminPin}`);
+  if (config.adminPinIsGenerated) {
+    console.log(`  Admin PIN:      ${config.adminPin}  (tự sinh - hãy đặt ADMIN_PIN trong .env)`);
+  } else {
+    console.log('  Admin PIN:      (đã đặt trong .env)');
+  }
   console.log('==================================================\n');
+  if (config.adminPinIsWeak) {
+    console.warn('  ⚠️  ADMIN_PIN đang quá yếu hoặc là mặc định. Hãy đổi sang PIN dài, khó đoán trong .env!\n');
+  }
 });
 
 // Graceful shutdown

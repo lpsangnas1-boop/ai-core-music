@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Sparkles, ListMusic } from 'lucide-react';
 import type { QueueItem } from '../../types/index.js';
+import { deviceKey } from '../../utils/deviceKey.js';
 
 interface QueueListProps {
   queue: QueueItem[];
@@ -17,6 +18,8 @@ export const QueueList: React.FC<QueueListProps> = ({
   showRequesterNames = true,
   className = '',
 }) => {
+  const myKey = deviceKey(deviceId);
+
   // Ensure we only show upcoming queued songs that are not the currently playing song
   const upcomingQueue = queue.filter(
     (item) => item.status === 'queued' && (!currentSongId || item.id !== currentSongId)
@@ -50,13 +53,13 @@ export const QueueList: React.FC<QueueListProps> = ({
             Chưa có bài nào trong hàng đợi
           </h4>
           <p className="text-[11px] sm:text-xs text-[#84849c] max-w-xs mx-auto">
-            Nhạc trên YouTube sẽ tự phát cho đến khi có người order bài mới.
+            Nhạc nền sẽ tự phát cho đến khi có người order bài mới.
           </p>
         </div>
       ) : (
         <div className="space-y-2 sm:space-y-2.5 flex-1 min-h-0 max-h-[380px] sm:max-h-[460px] lg:max-h-none overflow-y-auto pr-0.5 sm:pr-1">
           {upcomingQueue.map((item, index) => {
-            const isMyRequest = item.requesterDeviceId === deviceId;
+            const isMyRequest = item.requesterKey === myKey;
             const positionString = (index + 1).toString().padStart(2, '0');
 
             return (

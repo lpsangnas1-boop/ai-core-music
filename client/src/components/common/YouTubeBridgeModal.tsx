@@ -6,7 +6,6 @@ import {
   Check,
   Radio,
   FolderOpen,
-  Zap,
 } from 'lucide-react';
 import type { NetworkInfo } from '../../types/index.js';
 
@@ -21,20 +20,12 @@ export const YouTubeBridgeModal: React.FC<YouTubeBridgeModalProps> = ({
   onClose,
   networkInfo,
 }) => {
-  const [copiedScript, setCopiedScript] = useState(false);
   const [copiedExtPath, setCopiedExtPath] = useState(false);
 
   if (!isOpen) return null;
 
-  const serverUrl = networkInfo.url || window.location.origin;
-  const scriptUrl = `${serverUrl}/api/bridge/script.user.js`;
+  const serverUrl = window.location.origin || networkInfo.url;
   const extensionPath = 'youtube-extension';
-
-  const handleCopyScriptUrl = () => {
-    navigator.clipboard.writeText(scriptUrl);
-    setCopiedScript(true);
-    setTimeout(() => setCopiedScript(false), 2000);
-  };
 
   const handleCopyExtPath = () => {
     navigator.clipboard.writeText(extensionPath);
@@ -94,7 +85,7 @@ export const YouTubeBridgeModal: React.FC<YouTubeBridgeModalProps> = ({
             </div>
 
             <p className="text-xs text-[#84849c] leading-relaxed">
-              Bấm nút bên dưới để mở 1 tab trình phát riêng biệt. Tab này nối trực tiếp ra loa văn phòng và tự động nhận mọi bài request từ web chính.
+              Bấm nút bên dưới để mở 1 tab trình phát riêng biệt. Tab mới sẽ nhận quyền phát nhạc; tab DJ hiện tại tự chuyển sang chế độ chờ (không bị phát đôi).
             </p>
 
             <button
@@ -145,41 +136,8 @@ export const YouTubeBridgeModal: React.FC<YouTubeBridgeModalProps> = ({
             </div>
 
             <p className="text-[11px] text-[#84849c]">
-              👉 Sau khi load xong, bạn chỉ cần mở tab <strong>youtube.com</strong>, góc dưới sẽ hiện <span className="text-[#1a2b88] font-bold">● Office Jukebox: Linked & Ready</span> và tự động phát nhạc khi có request!
+              👉 Bấm biểu tượng extension, nhập <strong>Server URL</strong> (<code className="font-mono">{serverUrl}</code>) và <strong>mã PIN DJ</strong>, rồi mở tab <strong>youtube.com</strong>. Góc dưới sẽ hiện <span className="text-[#1a2b88] font-bold">● Office Jukebox: Linked & Ready</span>. Khi hết hàng đợi, YouTube sẽ tự phát bài gợi ý.
             </p>
-          </div>
-
-          {/* Solution 3: Tampermonkey Script */}
-          <div className="p-3.5 rounded-xl bg-[#ffffff] border border-[#25385b]/30 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#a2b0ff]/20 text-[#25385b] text-[10px] font-mono font-bold uppercase border border-[#a2b0ff]">
-                  TAMPERMONKEY
-                </span>
-                <span className="font-bold text-xs text-[#25385b]">Userscript</span>
-              </div>
-            </div>
-            <p className="text-xs text-[#84849c]">
-              Nếu máy bạn đã có Tampermonkey / Violentmonkey:
-            </p>
-            <div className="flex items-center gap-2">
-              <a
-                href={scriptUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#25385b] hover:bg-[#1a2b88] text-[#fffcef] text-xs font-semibold transition-colors shadow-recess"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>Cài Userscript qua Tampermonkey</span>
-              </a>
-              <button
-                onClick={handleCopyScriptUrl}
-                className="p-2 rounded-full bg-[#fffcef] hover:bg-[#a2b0ff]/20 border border-[#25385b] text-xs text-[#25385b] flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                {copiedScript ? <Check className="w-3.5 h-3.5 text-[#1a2b88]" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedScript ? 'Đã copy URL' : 'Copy Script URL'}</span>
-              </button>
-            </div>
           </div>
 
           {/* Actions */}

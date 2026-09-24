@@ -14,6 +14,11 @@ import { GuestPage } from './pages/GuestPage.js';
 import { AdminPage } from './pages/AdminPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { PlayerPage } from './pages/PlayerPage.js';
+import { ErrorBoundary } from './components/common/ErrorBoundary.js';
+import { useToast } from './hooks/useToast.js';
+import { api, ADMIN_UNAUTHORIZED_EVENT } from './services/api.js';
+
+const requiresAdmin = (path: string) => path.startsWith('/admin') || path === '/player';
 
 export const App: React.FC = () => {
   const {
@@ -28,6 +33,8 @@ export const App: React.FC = () => {
   } = useDeviceId();
   const jukebox = useJukebox(adminPin);
   const pip = usePictureInPicture();
+  const { addToast } = useToast();
+  const isAdmin = Boolean(adminPin);
 
   const [currentPath, setCurrentPath] = useState<string>(window.location.pathname || '/');
   const [isBridgeModalOpen, setIsBridgeModalOpen] = useState<boolean>(false);
@@ -87,8 +94,43 @@ export const App: React.FC = () => {
     );
   }, []);
 
+  // Opening /admin or /player directly without a stored PIN asks for it instead of silently showing the guest page
+  useEffect(() => {
+    if (requiresAdmin(currentPath) && !adminPin) {
+      setIsPinModalOpen(true);
+    }
+  }, [currentPath, adminPin]);
+
+  // Check a stored PIN once on load: a stale PIN (e.g. changed in .env) is dropped via the
+  // unauthorized event below instead of silently lingering in this browser.
+  useEffect(() => {
+    if (adminPin) {
+      api.verifyStoredPin(adminPin).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A stored PIN that the server rejects (e.g. PIN changed in .env) is dropped and asked again
+  useEffect(() => {
+    const onUnauthorized = () => {
+      clearAdminPin();
+      addToast({
+        type: 'warning',
+        title: 'Phiên DJ đã hết hiệu lực',
+        message: 'Mã PIN không còn đúng. Vui lòng nhập lại PIN.',
+      });
+      if (requiresAdmin(window.location.pathname)) {
+        setIsPinModalOpen(true);
+      }
+    };
+    window.addEventListener(ADMIN_UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(ADMIN_UNAUTHORIZED_EVENT, onUnauthorized);
+  }, [addToast]);
+
   const navigate = (path: string) => {
-    if (path.startsWith('/admin') && !adminPin) {
+    if (requiresAdmin(path) && !adminPin) {
+      window.history.pushState({}, '', path);
+      setCurrentPath(path);
       setIsPinModalOpen(true);
       return;
     }
@@ -99,17 +141,30 @@ export const App: React.FC = () => {
   const handlePinSuccess = (pin: string) => {
     saveAdminPin(pin);
     setIsPinModalOpen(false);
-    if (!currentPath.startsWith('/admin')) {
-      navigate('/admin');
+    if (!requiresAdmin(currentPath)) {
+      window.history.pushState({}, '', '/admin');
+      setCurrentPath('/admin');
     }
   };
+
+  const handleCancelPin = () => {
+    setIsPinModalOpen(false);
+    if (requiresAdmin(currentPath)) {
+      window.history.pushState({}, '', '/');
+      setCurrentPath('/');
+    }
+  };
+
+  const reactionName = `${userAvatar || '🐱'} ${requesterName || 'Ẩn danh'}`;
+  // Anyone can skip with one click; Play/Pause stay on DJ screens only.
+  const hasDjControls = isAdmin && requiresAdmin(currentPath);
 
   const handleLogoutAdmin = () => {
     clearAdminPin();
     navigate('/');
   };
 
-  const isAdminView = currentPath.startsWith('/admin') && Boolean(adminPin);
+  const isAdminView = currentPath.startsWith('/admin') && isAdmin;
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent text-[#25385b] selection:bg-[#a2b0ff] selection:text-[#25385b] relative overflow-x-hidden">
@@ -179,23 +234,25 @@ export const App: React.FC = () => {
       <OrderHistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        onReorderSong={(url) => {
-          jukebox.requestSong(url, requesterName || 'Đồng nghiệp');
-        }}
+        onReorderSong={(youtubeId) =>
+          jukebox.requestSong(youtubeId, `${userAvatar || '🐱'} ${requesterName || 'Đồng nghiệp'}`)
+        }
       />
 
       {/* Live Danmaku Bullet Chat Overlay */}
-      <DanmakuOverlay
-        danmakuList={jukebox.danmakuList}
-        onSendDanmaku={jukebox.sendDanmaku}
-        defaultUserName={`${userAvatar || '🐱'} ${requesterName || ''}`.trim()}
-      />
+      <ErrorBoundary fallback={null}>
+        <DanmakuOverlay
+          danmakuList={jukebox.danmakuList}
+          onSendDanmaku={jukebox.sendDanmaku}
+          defaultUserName={`${userAvatar || '🐱'} ${requesterName || ''}`.trim()}
+        />
+      </ErrorBoundary>
 
       {/* Admin PIN Modal Window */}
       <AdminPinModal
         isOpen={isPinModalOpen}
         onSuccess={handlePinSuccess}
-        onCancel={() => setIsPinModalOpen(false)}
+        onCancel={handleCancelPin}
       />
 
       {/* Navigation Bar on Sandy Desk */}
@@ -217,11 +274,13 @@ export const App: React.FC = () => {
 
       {/* Main Workspace Area */}
       <main className="flex-1 pb-12">
-        {currentPath === '/player' ? (
+        <ErrorBoundary resetKey={currentPath}>
+        {currentPath === '/player' && isAdmin ? (
           <PlayerPage
             playerState={jukebox.playerState}
             queue={jukebox.queue}
             settings={jukebox.settings}
+            adminPin={adminPin}
             onStartJukebox={jukebox.startJukebox}
             onPlay={jukebox.play}
             onPause={jukebox.pause}
@@ -282,14 +341,13 @@ export const App: React.FC = () => {
             onSaveUserAvatar={saveUserAvatar}
             onRequestSong={jukebox.requestSong}
             onSkipSong={jukebox.next}
-            onSendReaction={(emoji) =>
-              jukebox.sendReaction(emoji, `${userAvatar || '🐱'} ${requesterName || 'Ẩn danh'}`)
-            }
+            onSendReaction={(emoji) => jukebox.sendReaction(emoji, reactionName)}
             onTogglePip={() => {
               pip.toggleInPageMini();
             }}
           />
         )}
+        </ErrorBoundary>
       </main>
 
       {/* 1. Document Picture-in-Picture Portal (OS Always-on-Top Floating Window) */}
@@ -302,14 +360,9 @@ export const App: React.FC = () => {
             isDocPipSupported={pip.isDocPipSupported}
             onClose={pip.closeDocPip}
             onSkipSong={jukebox.next}
-            onPlay={jukebox.play}
-            onPause={jukebox.pause}
-            onSendReaction={(emoji) =>
-              jukebox.sendReaction(
-                emoji,
-                `${userAvatar || '🐱'} ${requesterName || 'Ẩn danh'}`
-              )
-            }
+            onPlay={hasDjControls ? jukebox.play : undefined}
+            onPause={hasDjControls ? jukebox.pause : undefined}
+            onSendReaction={(emoji) => jukebox.sendReaction(emoji, reactionName)}
             onFocusMainWindow={pip.focusMainWindow}
           />,
           pip.pipContainer
@@ -326,14 +379,9 @@ export const App: React.FC = () => {
           onOpenDocPip={pip.openDocPip}
           onClose={() => pip.setIsInPageMiniActive(false)}
           onSkipSong={jukebox.next}
-          onPlay={jukebox.play}
-          onPause={jukebox.pause}
-          onSendReaction={(emoji) =>
-            jukebox.sendReaction(
-              emoji,
-              `${userAvatar || '🐱'} ${requesterName || 'Ẩn danh'}`
-            )
-          }
+          onPlay={hasDjControls ? jukebox.play : undefined}
+          onPause={hasDjControls ? jukebox.pause : undefined}
+          onSendReaction={(emoji) => jukebox.sendReaction(emoji, reactionName)}
         />
       )}
 

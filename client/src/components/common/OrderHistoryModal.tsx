@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { X, User, Clock, RotateCcw, Loader2, Music2, Search, Filter, Check } from 'lucide-react';
 import { api } from '../../services/api.js';
+import { useToast } from '../../hooks/useToast.js';
 import type { RequestHistoryItem } from '../../types/index.js';
 
 interface OrderHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onReorderSong?: (youtubeId: string, title: string) => void;
+  onReorderSong?: (youtubeId: string, title: string) => Promise<unknown>;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -42,6 +43,7 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
   const [selectedRequester, setSelectedRequester] = useState<string>('');
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [reorderedIds, setReorderedIds] = useState<string[]>([]);
+  const { addToast } = useToast();
 
   const handleReorder = async (item: RequestHistoryItem) => {
     if (!onReorderSong) return;
@@ -52,8 +54,8 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
       setTimeout(() => {
         setReorderedIds((prev) => prev.filter((id) => id !== item.id));
       }, 3000);
-    } catch (e) {
-      console.warn('Reorder error:', e);
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Không thể order lại', message: e?.message || 'Vui lòng thử lại' });
     } finally {
       setReorderingId(null);
     }

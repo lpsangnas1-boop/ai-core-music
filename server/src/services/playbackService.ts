@@ -1,7 +1,17 @@
 import { getQueue, markQueueItemPlayed } from './queueService.js';
 import { getDefaultPlaylist } from './playlistService.js';
 import { getSettings } from './settingsService.js';
-import type { CurrentSongState, PlayerState, PlaybackStatus, VideoMetadata, VoteSkipState } from '../types/shared.js';
+import { deviceKey } from '../security.js';
+import type {
+  CurrentSongState,
+  MasterKind,
+  PlayerState,
+  PlaybackStatus,
+  PlaylistItem,
+  SyncFromYouTubePayload,
+  VideoMetadata,
+  VoteSkipState,
+} from '../types/shared.js';
 
 type StateChangeCallback = (state: PlayerState, eventType?: string, payload?: any) => void;
 
@@ -13,14 +23,13 @@ class PlaybackService {
   private volume = 80;
   private isMuted = false;
   private isJukeboxStarted = false;
-  private defaultPlaylistIndex = 0;
+  /** Id of the last default-playlist song that was played (cursor for the fallback playlist). */
+  private lastDefaultSongId: string | null = null;
+  /** Kind of the active master player; decides what happens when the queue runs out. */
+  private masterKind: MasterKind | null = null;
   private listeners: StateChangeCallback[] = [];
   private skipVotes = new Set<string>();
   private skipVotesRequired = 3;
-
-  constructor() {
-    // Initial state
-  }
 
   public subscribe(listener: StateChangeCallback): () => void {
     this.listeners.push(listener);
@@ -50,6 +59,10 @@ class PlaybackService {
       isMuted: this.isMuted,
       isJukeboxStarted: this.isJukeboxStarted,
     };
+  }
+
+  public setMasterKind(kind: MasterKind | null): void {
+    this.masterKind = kind;
   }
 
   public startJukebox(): PlayerState {
@@ -83,15 +96,21 @@ class PlaybackService {
   }
 
   public next(): PlayerState {
-    this.skipVotes.clear();
-    this.notify('player:vote_update', this.getVoteSkipState());
     const queue = getQueue();
-    if (queue.length > 0) {
-      this.resolveNextSong();
-    } else {
+    if (queue.length === 0 && this.masterKind === 'youtube-tab') {
+      // Let the YouTube tab pick its own next video (YouTube autoplay radio).
+      this.clearVotes();
       this.notify('command:skip');
+    } else {
+      this.resolveNextSong();
     }
     return this.getState();
+  }
+
+  private clearVotes(): void {
+    if (this.skipVotes.size === 0) return;
+    this.skipVotes.clear();
+    this.notify('player:vote_update', this.getVoteSkipState());
   }
 
   public getVoteSkipState(): VoteSkipState {
@@ -103,14 +122,15 @@ class PlaybackService {
   }
 
   public voteSkip(deviceId: string): { skipped: boolean; voteState: VoteSkipState } {
-    if (!deviceId) {
+    if (!deviceId || !this.currentSong) {
       return { skipped: false, voteState: this.getVoteSkipState() };
     }
 
-    if (this.skipVotes.has(deviceId)) {
-      this.skipVotes.delete(deviceId);
+    const key = deviceKey(deviceId);
+    if (this.skipVotes.has(key)) {
+      this.skipVotes.delete(key);
     } else {
-      this.skipVotes.add(deviceId);
+      this.skipVotes.add(key);
     }
 
     const voteState = this.getVoteSkipState();
@@ -118,8 +138,6 @@ class PlaybackService {
 
     if (this.skipVotes.size >= this.skipVotesRequired) {
       console.log(`[PlaybackService] Reached ${this.skipVotesRequired} votes! Automatically skipping song.`);
-      this.skipVotes.clear();
-      this.notify('player:vote_update', this.getVoteSkipState());
       this.next();
       return { skipped: true, voteState: this.getVoteSkipState() };
     }
@@ -135,26 +153,11 @@ class PlaybackService {
       return this.getState();
     }
 
-    this.defaultPlaylistIndex = (this.defaultPlaylistIndex - 1 + playlist.length) % playlist.length;
-    const prevSong = playlist[this.defaultPlaylistIndex];
-
-    this.currentSong = {
-      id: prevSong.id,
-      youtubeId: prevSong.youtubeId,
-      title: prevSong.title,
-      channel: prevSong.channel,
-      thumbnail: prevSong.thumbnail,
-      duration: prevSong.duration,
-      isDefault: true,
-      startedAt: Date.now(),
-      shoutout: null,
-    };
-
-    this.status = 'playing';
-    this.currentTime = 0;
-    this.duration = prevSong.duration;
-    this.notify('command:load_song', { song: this.currentSong });
-
+    const lastIdx = this.lastDefaultSongId
+      ? playlist.findIndex((s) => s.id === this.lastDefaultSongId)
+      : -1;
+    const prevIdx = lastIdx <= 0 ? playlist.length - 1 : lastIdx - 1;
+    this.playDefaultSong(playlist[prevIdx]);
     return this.getState();
   }
 
@@ -180,8 +183,7 @@ class PlaybackService {
   }
 
   public playSongImmediately(metadata: VideoMetadata, isDefault = false, requesterName?: string, shoutout?: string): PlayerState {
-    this.skipVotes.clear();
-    this.notify('player:vote_update', this.getVoteSkipState());
+    this.clearVotes();
     this.isJukeboxStarted = true;
     this.currentSong = {
       id: metadata.youtubeId,
@@ -213,7 +215,7 @@ class PlaybackService {
       return;
     }
     this.lastSongEndedTime = now;
-    console.log('[PlaybackService] Current song ended, advancing to next song in queue...');
+    console.log('[PlaybackService] Current song ended, advancing to next song...');
     this.resolveNextSong();
   }
 
@@ -241,18 +243,11 @@ class PlaybackService {
     if (typeof data.isMuted === 'boolean') this.isMuted = data.isMuted;
   }
 
-  public syncFromYouTubeTab(data: {
-    youtubeId: string;
-    title: string;
-    channel?: string;
-    thumbnail?: string;
-    currentTime?: number;
-    duration?: number;
-  }): void {
+  public syncFromYouTubeTab(data: SyncFromYouTubePayload): void {
     if (!data || !data.youtubeId) return;
 
     this.isJukeboxStarted = true;
-    this.status = 'playing';
+    this.status = data.status || 'playing';
 
     // 1. Same video as currently playing -> update progress and metadata
     if (this.currentSong && this.currentSong.youtubeId === data.youtubeId) {
@@ -274,9 +269,10 @@ class PlaybackService {
       return;
     }
 
-    // 2. Video changed on YouTube!
+    // 2. Video changed on YouTube -> votes belonged to the previous song
+    this.clearVotes();
+
     const queue = getQueue();
-    // If there are songs waiting in the user queue:
     if (queue.length > 0) {
       if (queue[0].youtubeId === data.youtubeId) {
         // YouTube loaded the queued song correctly
@@ -285,9 +281,9 @@ class PlaybackService {
         this.currentSong = {
           id: queueItem.id,
           youtubeId: queueItem.youtubeId,
-          title: queueItem.title || data.title,
+          title: queueItem.title || data.title || 'YouTube Video',
           channel: queueItem.channel || data.channel || 'YouTube Channel',
-          thumbnail: queueItem.thumbnail || data.thumbnail || `https://i.ytimg.com/vi/${data.youtubeId}/hqdefault.jpg`,
+          thumbnail: queueItem.thumbnail || `https://i.ytimg.com/vi/${data.youtubeId}/hqdefault.jpg`,
           duration: data.duration || queueItem.duration || 0,
           isDefault: false,
           requesterName: queueItem.requesterName,
@@ -295,20 +291,19 @@ class PlaybackService {
           shoutout: queueItem.shoutout || null,
         };
       } else {
-        // YouTube tried to autoplay its own random video while a user order is in queue!
-        // Immediately override and FORCE YouTube to play the user's queued song!
-        console.log(`[PlaybackService] Intercepted YouTube autoplay "${data.title}". Enforcing queued song "${queue[0].title}" requested by ${queue[0].requesterName}!`);
+        // YouTube autoplayed its own video while a user order is waiting -> enforce the queue.
+        console.log(`[PlaybackService] Intercepted YouTube autoplay "${data.title}". Enforcing queued song "${queue[0].title}".`);
         this.resolveNextSong();
         return;
       }
     } else {
-      // Queue is genuinely empty -> Let YouTube autoplay and sync its info
+      // Queue is genuinely empty -> let YouTube autoplay and sync its info
       this.currentSong = {
         id: data.youtubeId,
         youtubeId: data.youtubeId,
         title: data.title || 'YouTube Video',
         channel: data.channel || 'YouTube Channel',
-        thumbnail: data.thumbnail || `https://i.ytimg.com/vi/${data.youtubeId}/hqdefault.jpg`,
+        thumbnail: `https://i.ytimg.com/vi/${data.youtubeId}/hqdefault.jpg`,
         duration: data.duration || 0,
         isDefault: false,
         requesterName: 'YouTube Autoplay',
@@ -322,9 +317,43 @@ class PlaybackService {
     this.notify();
   }
 
+  /** Next enabled default-playlist song after the last one played, honoring the loop setting. */
+  private pickNextDefaultSong(): PlaylistItem | null {
+    const playlist = getDefaultPlaylist().filter((s) => s.isEnabled);
+    if (playlist.length === 0) return null;
+
+    const lastIdx = this.lastDefaultSongId
+      ? playlist.findIndex((s) => s.id === this.lastDefaultSongId)
+      : -1;
+    const nextIdx = lastIdx + 1;
+    if (nextIdx < playlist.length) return playlist[nextIdx];
+    return getSettings().loopDefaultPlaylist ? playlist[0] : null;
+  }
+
+  private playDefaultSong(song: PlaylistItem): void {
+    this.clearVotes();
+    this.lastDefaultSongId = song.id;
+    this.isJukeboxStarted = true;
+    this.currentSong = {
+      id: song.id,
+      youtubeId: song.youtubeId,
+      title: song.title,
+      channel: song.channel,
+      thumbnail: song.thumbnail,
+      duration: song.duration,
+      isDefault: true,
+      startedAt: Date.now(),
+      shoutout: null,
+    };
+    this.status = 'playing';
+    this.currentTime = 0;
+    this.duration = song.duration;
+    console.log(`[PlaybackService] Queue empty -> playing default playlist song "${song.title}"`);
+    this.notify('command:load_song', { song: this.currentSong });
+  }
+
   public resolveNextSong(): void {
-    this.skipVotes.clear();
-    this.notify('player:vote_update', this.getVoteSkipState());
+    this.clearVotes();
     // If there was a queued song currently playing, mark it as played
     if (this.currentSong && !this.currentSong.isDefault) {
       markQueueItemPlayed(this.currentSong.id);
@@ -333,10 +362,9 @@ class PlaybackService {
     const queue = getQueue();
     this.isJukeboxStarted = true;
 
-    // 1. Check if there are songs in the queue (ALWAYS HIGHEST PRIORITY)
+    // 1. Queued requests always have the highest priority
     if (queue.length > 0) {
       const nextQueueItem = queue[0];
-      // Mark as played/popped so it transitions out of queued status
       markQueueItemPlayed(nextQueueItem.id);
 
       this.currentSong = {
@@ -361,15 +389,29 @@ class PlaybackService {
       return;
     }
 
-    // 2. Queue is empty -> DO NOT INTERVENE, let YouTube play naturally!
-    console.log('[PlaybackService] Queue is empty. No intervention, letting YouTube play naturally.');
-    if (this.currentSong && !this.currentSong.isDefault) {
-      this.currentSong = {
-        ...this.currentSong,
-        requesterName: 'YouTube Autoplay',
-      };
+    // 2a. YouTube tab master: let YouTube keep playing its own recommendations.
+    if (this.masterKind === 'youtube-tab') {
+      console.log('[PlaybackService] Queue is empty. Letting the YouTube tab autoplay.');
+      if (this.currentSong && !this.currentSong.isDefault) {
+        this.currentSong = { ...this.currentSong, requesterName: 'YouTube Autoplay' };
+      }
+      this.notify('command:queue_empty');
+      return;
     }
-    this.notify('command:queue_empty');
+
+    // 2b. Embedded players cannot autoplay -> fall back to the default playlist.
+    const defaultSong = getSettings().autoPlay ? this.pickNextDefaultSong() : null;
+    if (defaultSong) {
+      this.playDefaultSong(defaultSong);
+      return;
+    }
+
+    console.log('[PlaybackService] Queue and default playlist exhausted. Stopping.');
+    this.currentSong = null;
+    this.status = 'idle';
+    this.currentTime = 0;
+    this.duration = 0;
+    this.notify('command:stop');
   }
 }
 

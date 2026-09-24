@@ -1,6 +1,7 @@
 import { db } from '../database/db.js';
 import { randomUUID } from 'node:crypto';
 import { getSettings } from './settingsService.js';
+import { deviceKey } from '../security.js';
 import type { QueueItem, VideoMetadata, RequestHistoryItem } from '../types/shared.js';
 
 export function getQueue(): QueueItem[] {
@@ -21,7 +22,7 @@ export function getQueue(): QueueItem[] {
     thumbnail: r.thumbnail,
     duration: r.duration || 0,
     requesterName: r.requesterName || 'Guest',
-    requesterDeviceId: r.requesterDeviceId,
+    requesterKey: deviceKey(r.requesterDeviceId || ''),
     status: r.status,
     position: r.position,
     createdAt: r.createdAt,
@@ -157,7 +158,7 @@ export function addQueueItem(
     thumbnail: metadata.thumbnail,
     duration: metadata.duration || 0,
     requesterName: cleanRequesterName,
-    requesterDeviceId: requesterDeviceId || 'unknown',
+    requesterKey: deviceKey(requesterDeviceId || 'unknown'),
     status: 'queued',
     position: nextPos,
     createdAt,
@@ -168,7 +169,7 @@ export function addQueueItem(
 }
 
 export function removeQueueItem(id: string): boolean {
-  const item = db.prepare('SELECT * FROM queue WHERE id = ?').get(id) as any;
+  const item = db.prepare("SELECT * FROM queue WHERE id = ? AND status = 'queued'").get(id) as any;
   if (!item) return false;
 
   db.prepare("UPDATE queue SET status = 'removed' WHERE id = ?").run(id);
@@ -176,7 +177,7 @@ export function removeQueueItem(id: string): boolean {
   // Log in history as removed
   db.prepare(`
     INSERT INTO request_history (id, youtube_id, title, channel, thumbnail, duration, requester_name, requester_device_id, status, created_at, played_at, shoutout)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'removed', ?, CURRENT_TIMESTAMP, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'removed', ?, ?, ?)
   `).run(
     randomUUID(),
     item.youtube_id,
@@ -187,6 +188,7 @@ export function removeQueueItem(id: string): boolean {
     item.requester_name,
     item.requester_device_id,
     item.created_at,
+    new Date().toISOString(),
     item.shoutout || null
   );
 
@@ -205,9 +207,10 @@ export function clearQueue(): boolean {
   
   const insertHistory = db.prepare(`
     INSERT INTO request_history (id, youtube_id, title, channel, thumbnail, duration, requester_name, requester_device_id, status, created_at, played_at, shoutout)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'removed', ?, CURRENT_TIMESTAMP, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'removed', ?, ?, ?)
   `);
 
+  const removedAt = new Date().toISOString();
   for (const item of queuedItems) {
     insertHistory.run(
       randomUUID(),
@@ -219,6 +222,7 @@ export function clearQueue(): boolean {
       item.requester_name,
       item.requester_device_id,
       item.created_at,
+      removedAt,
       item.shoutout || null
     );
   }
@@ -286,7 +290,7 @@ export function markQueueItemPlayed(id: string): void {
   );
 }
 
-export function getRequestHistory(limit = 1000): RequestHistoryItem[] {
+export function getRequestHistory(limit = 1000, options?: { includeDeviceId?: boolean }): RequestHistoryItem[] {
   const query = limit > 0
     ? `SELECT id, youtube_id as youtubeId, title, channel, thumbnail, duration,
               requester_name as requesterName, requester_device_id as requesterDeviceId,
@@ -310,7 +314,7 @@ export function getRequestHistory(limit = 1000): RequestHistoryItem[] {
     thumbnail: r.thumbnail,
     duration: r.duration || 0,
     requesterName: r.requesterName || 'Guest',
-    requesterDeviceId: r.requesterDeviceId,
+    ...(options?.includeDeviceId ? { requesterDeviceId: r.requesterDeviceId } : {}),
     status: r.status,
     createdAt: r.createdAt,
     playedAt: r.playedAt,

@@ -1,31 +1,29 @@
 # 🎧 AI Core music — YouTube Music Queue for Office
 
-**AI Core music** là giải pháp music server / DJ station cho văn phòng thông minh, hỗ trợ cả mạng nội bộ (LAN / Wi-Fi) và kết nối qua Internet (Ngrok tunnel).
+**AI Core music** là giải pháp music server / DJ station cho văn phòng thông minh, hỗ trợ cả mạng nội bộ (LAN / Wi-Fi) và truy cập qua Internet (Cloudflare Tunnel, Localtunnel hoặc Ngrok).
 
-Một máy tính duy nhất kết nối với loa ngoài làm **DJ Station** (Master YouTube Player). Tất cả đồng nghiệp (dù dùng Wi-Fi văn phòng hay 4G/5G) chỉ cần mở trình duyệt trên điện thoại hoặc laptop để **request bài hát realtime**, không ai cần chạm vào máy tính DJ.
+Một máy tính duy nhất kết nối với loa ngoài làm **DJ Station**. Tất cả đồng nghiệp (dù dùng Wi-Fi văn phòng hay 4G/5G) chỉ cần mở trình duyệt trên điện thoại hoặc laptop để **request bài hát realtime**, không ai cần chạm vào máy tính DJ.
 
 ---
 
 ## 🚀 Tính năng nổi bật
 
-- **Single Master Player**: Chỉ một YouTube Player duy nhất phát âm thanh tại máy DJ; các thiết bị khách (Guest) chỉ đồng bộ giao diện và gửi request qua Socket.IO.
+- **Một máy phát duy nhất (Single Master Player)**: Chỉ **một** tab/thiết bị được phát nhạc ra loa tại một thời điểm. Máy phát phải xác thực bằng PIN admin; mở máy phát mới (tab `/player` hoặc tab youtube.com có extension) sẽ nhận quyền phát, các tab DJ khác tự chuyển sang chế độ chờ — không bao giờ phát đôi.
 - **Tự động chuyển bài thông minh**:
-  - Khi có bài trong **Queue**, hệ thống ưu tiên phát các bài được request theo thứ tự.
-  - Khi **Queue trống**, hệ thống tự động quay về phát **Default Playlist** (nhạc nền chill/lo-fi) không bị gián đoạn.
-  - Sau khi bài hát kết thúc (`YT.PlayerState.ENDED`) hoặc bị lỗi bản quyền (`onError`), hệ thống tự động skip sang bài tiếp theo.
-- **Mobile-first Guest Experience**: Giao diện dark mode hiện đại, dán link YouTube (hỗ trợ `watch`, `shorts`, `youtu.be`, `music.youtube`), xem trước thông tin bài hát (thumbnail, tựa đề, kênh), nhập tên người gửi và nhận thông báo vị trí trong hàng đợi (`You're #3 in queue`).
-- **Chống Spam & Trùng bài (Spam & Duplicate Protection)**:
-  - Giới hạn số bài đang chờ trên mỗi thiết bị (cấu hình trong `.env`).
-  - Cooldown giữa các lần request từ cùng một thiết bị.
-  - Tự động chặn trùng lặp bài đang phát hoặc đã nằm trong Queue.
-- **DJ Master Station Dashboard**:
-  - Điều khiển phát/dừng, chuyển bài, thanh tua (seek scrubber), âm lượng và tắt tiếng.
-  - Kéo thả / thay đổi thứ tự hàng đợi, ghim bài ưu tiên phát tiếp theo (*Play Next*), xóa bài, xóa toàn bộ.
-  - Quản lý Default Playlist: thêm bài từ YouTube, bật/tắt từng bài, xóa bài, chế độ lặp danh sách.
-  - Xem lịch sử các bài đã phát (*Request History*).
-  - Khóa quyền điều khiển bằng mã PIN bí mật (`ADMIN_PIN`).
-- **Hỗ trợ Ngrok Online Tunnel**: Phát nhạc qua internet cực nhanh, đồng nghiệp dùng 4G/5G hoặc WFH đều request được, không lo Wi-Fi công ty chặn (Client Isolation).
-- **Lưu trữ dữ liệu bền vững (Persistence)**: Sử dụng SQLite (WAL mode) lưu trữ toàn bộ Default Playlist, Queue, Settings và Lịch sử. Khởi động lại server không bao giờ bị mất dữ liệu.
+  - Bài trong **Queue** luôn được ưu tiên phát theo thứ tự.
+  - Khi **Queue trống**:
+    - Trình phát trên web (`/admin`, `/player`) tự phát **Default Playlist** (bật/tắt trong Cài đặt, có tùy chọn lặp lại).
+    - Tab youtube.com (extension) để YouTube tự phát bài gợi ý.
+  - Khi bài kết thúc hoặc video bị chặn nhúng (`onError`), hệ thống tự chuyển bài tiếp theo.
+- **Mobile-first Guest Experience**: Tìm bài theo tên hoặc dán link YouTube (`watch`, `shorts`, `youtu.be`, `music.youtube`), xem trước thông tin bài hát, nhập tên người gửi và nhận vị trí trong hàng đợi.
+- **Qua bài 1 chạm**: Ai cũng bấm **Qua bài** để chuyển bài ngay. Hai lần chuyển bài phải cách nhau ít nhất 3 giây (chống bấm đúp làm trôi nhiều bài).
+- **Chống Spam & Trùng bài**:
+  - Giới hạn số bài đang chờ và cooldown trên mỗi thiết bị.
+  - Chặn trùng bài đang phát hoặc đã có trong Queue.
+  - Giới hạn tần suất tìm kiếm, reaction và bình luận bay (danmaku).
+- **DJ Master Station Dashboard**: Điều khiển phát/dừng, chuyển bài, tua, âm lượng; sắp xếp hàng đợi, *Play Next*, xóa bài; quản lý Default Playlist; xem lịch sử.
+- **Bảo mật**: Toàn bộ quyền điều khiển khóa bằng `ADMIN_PIN`, có khóa tạm thời khi nhập sai PIN quá 10 lần / 15 phút.
+- **Lưu trữ bền vững**: SQLite (WAL mode) lưu Default Playlist, Queue, Settings và Lịch sử.
 
 ---
 
@@ -33,17 +31,17 @@ Một máy tính duy nhất kết nối với loa ngoài làm **DJ Station** (Ma
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide Icons, Canvas Confetti.
 - **Backend**: Node.js, Express, TypeScript, Socket.IO.
-- **Database**: SQLite (`node:sqlite` native / WAL mode).
-- **Player API**: YouTube IFrame Player API.
-- **Tunneling**: Ngrok.
+- **Database**: SQLite (`node:sqlite` có sẵn trong Node.js, WAL mode).
+- **Player API**: YouTube IFrame Player API + Chrome extension cho tab youtube.com.
+- **Tunneling**: Cloudflare Tunnel (mặc định), Localtunnel, Ngrok.
 
 ---
 
 ## 📦 Cài đặt & Chạy ứng dụng
 
 ### 1. Yêu cầu môi trường
-- **Node.js**: >= 18.0.0 (khuyến nghị Node 20+)
-- **npm**: >= 9.0.0
+- **Node.js >= 22.13** (bắt buộc — `node:sqlite` không có trên Node 18/20). Khuyến nghị bản LTS mới nhất.
+- **npm** >= 9
 
 ### 2. Cài đặt Dependencies
 
@@ -53,20 +51,29 @@ cd ai-core-music
 npm install
 ```
 
-### 3. Cấu hình biến môi trường (Environment Variables)
+### 3. Cấu hình biến môi trường
 
-File `.env` mặc định tại thư mục gốc:
+Copy file mẫu rồi chỉnh sửa. File `.env` **không được commit** lên git (đã có trong `.gitignore`).
+
+```bash
+cp .env.example .env
+```
 
 ```env
 PORT=8989
 HOST=0.0.0.0
-ADMIN_PIN=123456
+ADMIN_PIN=<đặt-PIN-dài-và-khó-đoán>
 SERVER_NAME="AI Core music"
 REQUESTS_ENABLED=true
 REQUEST_COOLDOWN_SECONDS=0
 MAX_REQUESTS_PER_DEVICE=20
 DATABASE_PATH=data/jukebox.db
+TUNNEL_MODE=cloudflare
+CUSTOM_DOMAIN=music.lpsang.id.vn
 ```
+
+> [!IMPORTANT]
+> Hãy đặt `ADMIN_PIN` riêng, dài và khó đoán — nhất là khi mở web ra Internet. Nếu bỏ trống, server tự sinh một PIN ngẫu nhiên mỗi lần khởi động và in ra console. Server sẽ cảnh báo nếu PIN quá ngắn hoặc là `123456`.
 
 ### 4. Chạy trong môi trường Development
 
@@ -81,8 +88,6 @@ npm run dev
 
 ### 5. Build & Chạy Production
 
-Build toàn bộ frontend & backend sau đó khởi chạy:
-
 ```bash
 npm run build
 npm start
@@ -90,173 +95,137 @@ npm start
 
 ---
 
-## 🌐 Hướng dẫn phát Online ra Internet (Localtunnel / Cloudflare / Ngrok)
+## 🌐 Phát Online ra Internet
 
-Khi phát nhạc trong văn phòng, dùng tunnel online giúp **vượt qua tính năng Client Isolation của Wi-Fi công ty** và cho phép mọi người dùng **4G/5G** đều order bài hát được mà không cần cấu hình Router hay mở cổng mạng.
+Dùng tunnel giúp **vượt qua Client Isolation của Wi-Fi công ty** và cho phép mọi người dùng **4G/5G** order bài mà không cần mở cổng router.
 
----
+### ⚡ Chạy 1-Click
 
-### ⭐ Giải pháp 1: Localtunnel qua `npx` (Mặc định - Khuyên dùng)
+Nhấp đúp **`start-music.bat`** (hoặc `npm run start:online`). Launcher sẽ:
+1. Kiểm tra phiên bản Node.js.
+2. Build lại nếu chưa có bản build hoặc mã nguồn mới hơn bản build (ví dụ sau `git pull`).
+3. Chạy server (tự khởi động lại nếu server bị dừng bất thường).
+4. Kết nối tunnel theo `TUNNEL_MODE` và chỉ báo "sẵn sàng" khi server đã phản hồi thật. Lỗi của tunnel được in ra với tiền tố `[tunnel]`.
 
-> [!TIP]
-> **Ưu điểm vượt trội**:
-> - **Hoàn toàn MIỄN PHÍ, KHÔNG GIỚI HẠN REQUEST**. (Không bao giờ bị lỗi `ERR_NGROK_727` như Ngrok).
-> - **Không cần cài đặt thêm phần mềm**, không cần đăng ký tài khoản. Chỉ cần máy tính có Node.js là chạy được ngay qua lệnh `npx`.
+### ⭐ Cloudflare Named Tunnel (mặc định)
 
-#### 1. Chạy tự động 1-Click (Đã tích hợp sẵn):
-Nhấp đúp chuột vào file **`start-music.bat`** (hoặc chạy `npm run start:online`).
-Hệ thống sẽ tự động:
-1. Chạy server Jukebox (cổng `8989`).
-2. Tự động kết nối Localtunnel với subdomain `aicoremusic`.
-3. Tự động lấy **mật khẩu bảo mật** (Tunnel Password - IP công khai của máy chủ) và in rõ ràng lên màn hình!
+`TUNNEL_MODE=cloudflare` chạy `cloudflared tunnel run ai-core-music` và dùng tên miền `CUSTOM_DOMAIN` (mặc định `music.lpsang.id.vn`). Máy DJ cần cài `cloudflared` và đã cấu hình Named Tunnel `ai-core-music`.
 
-#### 2. Chạy thủ công qua Terminal:
-Nếu muốn chạy riêng tunnel bằng lệnh:
-```bash
-npx localtunnel --port 8989 --subdomain aicoremusic
-```
-- Link truy cập: `https://aicoremusic.loca.lt`
-- **Mật khẩu Tunnel (Khi mở lần đầu trên điện thoại)**: Localtunnel sẽ hiện một trang bảo mật yêu cầu nhập *Tunnel Password* (chính là địa chỉ IP công khai của máy DJ). Bạn lấy số này bằng cách mở: [https://localtunnel.me/mytunnelpassword](https://localtunnel.me/mytunnelpassword), copy dãy số và bấm Submit là vào nghe/order nhạc bình thường.
+Muốn dùng Quick Tunnel tạm thời (không cần tên miền): `npm run tunnel:cf` rồi gửi link `https://xxxx.trycloudflare.com`.
 
----
+### Localtunnel
 
-### ⭐ Giải pháp 2: Cloudflare Tunnel (`cloudflared`)
-
-Miễn phí 100%, không giới hạn request/băng thông, tốc độ server tại Việt Nam cực nhanh:
-
-1. **Cài đặt**: Chạy PowerShell `winget install --id Cloudflare.cloudflared` (hoặc tải file `cloudflared.exe`).
-2. **Khởi chạy Quick Tunnel**:
-   ```bash
-   npm run tunnel:cf
-   # hoặc: cloudflared tunnel --url http://localhost:8989
-   ```
-3. Copy link dạng `https://xxxx.trycloudflare.com` hiển thị trên terminal gửi cho mọi người.
-
----
-
-### ⭐ Giải pháp 3: Ngrok
-
-Nếu bạn có tài khoản Ngrok:
-1. Đăng ký tại [ngrok.com](https://ngrok.com), lấy token: `ngrok config add-authtoken <TOKEN>`.
-2. Chạy: `ngrok http 8989`.
-*(Lưu ý: Tài khoản Ngrok Free giới hạn 20.000 requests/tháng).*
-
----
-
-### ⚙️ Chuyển đổi giữa các loại Tunnel trong file `.env`:
-Bạn có thể dễ dàng đổi loại tunnel trong file `.env` ở thư mục gốc:
 ```env
-# Chọn một trong các chế độ: localtunnel | cloudflare | ngrok | none (chỉ LAN)
 TUNNEL_MODE=localtunnel
 LT_SUBDOMAIN=aicoremusic
 ```
 
+Link: `https://aicoremusic.loca.lt`. Lần đầu mở, Localtunnel yêu cầu nhập *Tunnel Password* (IP công khai của máy DJ) — lấy tại [https://localtunnel.me/mytunnelpassword](https://localtunnel.me/mytunnelpassword).
+
+### Ngrok
+
+```env
+TUNNEL_MODE=ngrok
+NGROK_DOMAIN=
+```
+
+Cần tài khoản Ngrok (`ngrok config add-authtoken <TOKEN>`). Gói Free giới hạn số request mỗi tháng.
+
+`TUNNEL_MODE=none` để chỉ chạy trong mạng LAN.
+
 ---
 
-## 📶 Hướng dẫn truy cập qua mạng LAN / Wi-Fi nội bộ
+## 📶 Truy cập qua mạng LAN / Wi-Fi nội bộ
 
-Nếu bạn không sử dụng Ngrok và muốn chạy trực tiếp trong mạng nội bộ:
-
-1. Đảm bảo máy tính DJ và điện thoại của mọi người **kết nối chung một mạng Wi-Fi**.
-2. Khởi động server:
-   ```bash
-   npm start
-   ```
-3. Server sẽ in thông tin truy cập ra màn hình terminal:
+1. Máy DJ và điện thoại của mọi người **kết nối chung một mạng Wi-Fi**.
+2. Khởi động server bằng `npm start`. Terminal sẽ in:
    ```text
    ==================================================
-     🎧  AI CORE MUSIC SERVER IS LIVE!
+     🎧  OFFICE JUKEBOX SERVER IS LIVE!
    ==================================================
      Host bound:     0.0.0.0
      Local Access:   http://localhost:8989
      LAN Access:     http://192.168.1.15:8989
      Admin Panel:    http://192.168.1.15:8989/admin
-     Admin PIN:      123456
+     Admin PIN:      (đã đặt trong .env)
    ==================================================
    ```
-4. Gửi link `http://<IP-MÁY-DJ>:8989` (ví dụ `http://192.168.1.15:8989`) cho mọi người mở trên trình duyệt điện thoại.
+3. Gửi link `http://<IP-MÁY-DJ>:8989` cho mọi người.
 
----
+### 🛡️ Windows Firewall
 
-## 🛡️ Cấu hình Windows Firewall (Khi dùng mạng LAN)
-
-Nếu đồng nghiệp không truy cập được vào địa chỉ IP nội bộ của bạn, hãy mở cổng `8989` trên Windows Defender Firewall:
-
-### Cách 1: Chạy PowerShell (Run as Administrator)
+Nếu đồng nghiệp không truy cập được IP nội bộ, mở cổng `8989` (PowerShell chạy Administrator):
 
 ```powershell
 New-NetFirewallRule -DisplayName "AI Core music (Port 8989)" -Direction Inbound -LocalPort 8989 -Protocol TCP -Action Allow
 ```
 
-### Cách 2: Qua giao diện Windows Defender Firewall
-1. Mở **Windows Defender Firewall with Advanced Security**.
-2. Chọn **Inbound Rules** -> **New Rule...**
-3. Chọn **Port** -> Next -> Chọn **TCP**, nhập **8989** vào Specific local ports.
-4. Chọn **Allow the connection** -> Next -> Tích đủ Domain, Private, Public -> Đặt tên `AI Core music` -> Finish.
+---
+
+## 🔑 DJ Station (`/admin`) & máy phát
+
+1. Mở `/admin` trên máy tính nối loa (ví dụ `http://localhost:8989/admin`) và nhập `ADMIN_PIN`.
+2. Nhấn **Khởi động Jukebox** để mở quyền autoplay âm thanh của trình duyệt.
+3. Chọn **một** trong các cách phát nhạc:
+   - **Tab `/admin`**: trình phát ẩn ngay trong dashboard.
+   - **Tab `/player`**: tab trình phát riêng (yêu cầu PIN). Mở tab này sẽ nhận quyền phát từ tab `/admin`.
+   - **Tab youtube.com + extension**: `chrome://extensions` → bật *Developer mode* → *Load unpacked* → chọn thư mục `youtube-extension`. Bấm biểu tượng extension, nhập **Server URL** và **mã PIN DJ**, rồi mở youtube.com. Khi hết hàng đợi, YouTube sẽ tự phát bài gợi ý.
+4. Tab nào không phải máy phát chính sẽ hiện thông báo *"Tab này đang chờ"* kèm nút **Phát nhạc tại tab này** để chuyển quyền phát.
+
+Nếu bạn đổi `ADMIN_PIN`, các trình duyệt đang lưu PIN cũ sẽ tự đăng xuất và hỏi lại PIN.
 
 ---
 
-## 🔑 Hướng dẫn quản trị DJ Station (`/admin`)
-
-1. Truy cập đường dẫn `/admin` trên máy tính kết nối loa (ví dụ: `http://localhost:8989/admin`).
-2. Nhập mã PIN (mặc định: `123456`).
-3. Nhấn **START JUKEBOX** để mở quyền autoplay âm thanh của trình duyệt.
-4. Máy tính DJ sẽ bắt đầu phát Default Playlist hoặc các bài do mọi người vừa request.
-
----
-
-## 📡 Danh sách API REST & Socket.IO Events
+## 📡 REST API & Socket.IO Events
 
 ### REST API
 
+Các endpoint Admin cần header `x-admin-pin`.
+
 | Method | Endpoint | Quyền | Mô tả |
 |---|---|---|---|
-| `GET` | `/api/network` | Public | Lấy địa chỉ IP LAN và URL kết nối |
-| `GET` | `/api/metadata?url=...` | Public | Lấy tiêu đề, thumbnail, tác giả từ link YouTube |
-| `GET` | `/api/player` | Public | Lấy trạng thái bài đang phát, âm lượng, thời gian |
-| `POST` | `/api/player/start` | Admin | Khởi chạy session Jukebox |
-| `POST` | `/api/player/play` | Admin | Tiếp tục phát |
-| `POST` | `/api/player/pause` | Admin | Tạm dừng |
-| `POST` | `/api/player/next` | Admin | Bỏ qua bài hiện tại / Chuyển bài |
-| `POST` | `/api/player/previous` | Admin | Quay lại bài trước |
-| `POST` | `/api/player/seek` | Admin | Tua đến giây chỉ định |
-| `POST` | `/api/player/volume` | Admin | Đổi âm lượng / Mute |
-| `GET` | `/api/queue` | Public | Lấy danh sách hàng đợi |
-| `GET` | `/api/queue/can-request?deviceId=...` | Public | Kiểm tra điều kiện cooldown và giới hạn số bài |
-| `POST` | `/api/queue` | Public | Thêm bài mới vào hàng đợi |
+| `POST` | `/api/admin/login` | Public | Kiểm tra PIN (khóa tạm sau 10 lần sai / 15 phút) |
+| `GET` | `/api/network` | Public | Địa chỉ IP LAN và URL kết nối |
+| `GET` | `/api/metadata?url=...` | Public | Tiêu đề, thumbnail, kênh từ link YouTube |
+| `GET` | `/api/player` | Public | Trạng thái bài đang phát |
+| `POST` | `/api/player/start` | Admin | Khởi chạy Jukebox |
+| `POST` | `/api/player/play` · `/pause` | Admin | Phát tiếp / tạm dừng |
+| `POST` | `/api/player/next` | Public | Chuyển bài ngay (cách nhau tối thiểu 3 giây) |
+| `POST` | `/api/player/previous` | Admin | Bài trước trong Default Playlist |
+| `POST` | `/api/player/seek` · `/volume` | Admin | Tua / âm lượng, tắt tiếng |
+| `POST` | `/api/player/play-now` | Admin | Phát ngay một link YouTube |
+| `GET` | `/api/queue` | Public | Hàng đợi (không kèm deviceId) |
+| `GET` | `/api/queue/search?q=...` | Public | Tìm bài trên YouTube (giới hạn tần suất) |
+| `GET` | `/api/queue/history` | Public | Lịch sử order (không kèm deviceId) |
+| `GET` | `/api/queue/can-request?deviceId=...` | Public | Kiểm tra cooldown và giới hạn số bài |
+| `POST` | `/api/queue` | Public | Thêm bài vào hàng đợi |
 | `DELETE` | `/api/queue/:id` | Admin | Xóa bài khỏi hàng đợi |
-| `POST` | `/api/queue/:id/play-next` | Admin | Ưu tiên phát bài tiếp theo |
-| `PATCH` | `/api/queue/reorder` | Admin | Sắp xếp lại thứ tự hàng đợi |
+| `POST` | `/api/queue/:id/play-next` | Admin | Ưu tiên phát tiếp theo |
+| `PATCH` | `/api/queue/reorder` | Admin | Sắp xếp lại hàng đợi |
 | `DELETE` | `/api/queue` | Admin | Xóa toàn bộ hàng đợi |
-| `GET` | `/api/playlist` | Public | Lấy danh sách Default Playlist |
+| `GET` | `/api/playlist` | Public | Default Playlist |
 | `POST` | `/api/playlist` | Admin | Thêm bài vào Default Playlist |
 | `DELETE` | `/api/playlist/:id` | Admin | Xóa bài khỏi Default Playlist |
-| `PATCH` | `/api/playlist/:id/toggle` | Admin | Bật/tắt bài trong playlist |
-| `GET` | `/api/settings` | Public | Lấy cài đặt Jukebox |
-| `PATCH` | `/api/settings` | Admin | Cập nhật cài đặt (tên, cooldown, số bài tối đa...) |
-| `GET` | `/api/history` | Admin | Xem lịch sử các bài đã phát |
+| `PATCH` | `/api/playlist/:id/toggle` · `/reorder` | Admin | Bật/tắt, sắp xếp bài |
+| `GET` | `/api/settings` | Public | Cài đặt Jukebox |
+| `PATCH` | `/api/settings` | Admin | Cập nhật cài đặt (chỉ nhận key hợp lệ) |
+| `GET` | `/api/history` | Admin | Lịch sử đầy đủ (kèm deviceId) |
 
 ### Socket.IO Events
 
-- **Server Emits**:
-  - `player:state`: Đồng bộ realtime trạng thái bài đang phát, timeline, âm lượng.
-  - `queue:update`: Cập nhật realtime danh sách hàng đợi khi có người thêm/xóa.
-  - `playlist:update`: Cập nhật playlist mặc định.
-  - `settings:update`: Cập nhật cấu hình server.
-  - `notification:new_request`: Bắn thông báo toast khi có bài mới kèm tên người request.
-  - `player:command`: Gửi lệnh điều khiển trực tiếp tới Master Player trên máy DJ.
-- **Client (Master Player) Emits**:
-  - `player:report_state`: Báo cáo tiến độ playback định kỳ mỗi giây.
-  - `player:song_ended`: Báo kết thúc bài để server tự động chuyển bài tiếp theo.
-  - `player:song_error`: Báo lỗi video để server tự động skip không bị kẹt player.
+- **Server gửi**: `player:state`, `player:command` (`load_song`, `play`, `pause`, `seek`, `volume`, `stop`, `skip`, `queue_empty`), `player:vote_update`, `master:status`, `queue:update`, `playlist:update`, `settings:update`, `notification:new_request`, `notification:song_error`, `reaction:new`, `danmaku:new`.
+- **Máy phát gửi** (chỉ được chấp nhận từ máy phát chính đã xác thực):
+  - `master:register { pin, kind: 'embedded' | 'youtube-tab', takeover }` (có ack) / `master:release`
+  - `player:report_state`, `player:song_ended`, `player:song_error`, `player:sync_from_youtube`
+- **Khách gửi**: `reaction:send` (chỉ emoji hợp lệ), `danmaku:send` (có giới hạn tần suất).
 
 ---
 
-## 📌 Lưu ý kỹ thuật & Giới hạn đã biết (Known Limitations)
+## 📌 Lưu ý kỹ thuật & Giới hạn đã biết
 
-1. **Autoplay Policy**: Trình duyệt hiện đại yêu cầu người dùng phải tương tác (click) một lần trên máy DJ trước khi YouTube Player có thể tự phát âm thanh. Giao diện đã có nút **START JUKEBOX** để giải quyết vấn đề này.
-2. **Video Embedding Restrictions**: Một số ít video YouTube bị chủ sở hữu tắt tính năng "Cho phép nhúng (Embedding)". Khi gặp video này, Master Player sẽ bắt sự kiện `onError` và tự động skip sang bài kế tiếp mà không bị gián đoạn.
-3. **Mạng LAN / Wi-Fi Isolation**: Ở các mạng Wi-Fi công ty có Client Isolation, hãy sử dụng giải pháp **Ngrok** như hướng dẫn ở trên để bỏ qua hoàn toàn giới hạn này.
+1. **Autoplay Policy**: Trình duyệt yêu cầu tương tác một lần trên máy DJ trước khi phát âm thanh. Nếu trình duyệt chặn, dashboard hiện nút *"bấm để bật âm thanh"*.
+2. **Video bị chặn nhúng**: Một số video tắt "Cho phép nhúng"; trình phát web sẽ tự bỏ qua. Dùng tab youtube.com (extension) nếu muốn phát cả những video này.
+3. **Wi-Fi Isolation**: Ở mạng có Client Isolation, dùng tunnel như hướng dẫn ở trên.
 
 ---
 

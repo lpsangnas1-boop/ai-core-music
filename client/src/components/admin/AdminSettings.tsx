@@ -147,6 +147,28 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
             />
           </div>
 
+          {/* Auto-play Default Playlist Toggle */}
+          <div className="p-3.5 rounded-xl bg-[#ffffff] border border-[#25385b]/20 flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <Radio className="w-4 h-4 text-[#ff8a7a] shrink-0" />
+              <div>
+                <div className="text-xs sm:text-sm font-bold text-[#25385b]">Tự phát Playlist mặc định khi hết hàng đợi</div>
+                <div className="text-[11px] text-[#84849c]">
+                  Áp dụng cho trình phát trên web (/admin, /player). Tab youtube.com dùng tính năng tự phát của YouTube.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, autoPlay: !form.autoPlay })}
+              className={`w-11 h-6 flex items-center rounded-full p-0.5 transition-colors duration-200 shrink-0 cursor-pointer ${
+                form.autoPlay ? 'bg-[#25385b] justify-end' : 'bg-[#84849c]/30 justify-start'
+              }`}
+            >
+              <span className="w-5 h-5 rounded-full bg-[#fffcef] border border-[#25385b]/30 shadow-sm transform transition-transform" />
+            </button>
+          </div>
+
           {/* Loop Default Playlist Toggle */}
           <div className="p-3.5 rounded-xl bg-[#ffffff] border border-[#25385b]/20 flex items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">

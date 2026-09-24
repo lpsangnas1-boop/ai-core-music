@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "description": "Office Jukebox - Local Network YouTube Music Queue for Office Environments",
   "workspaces": [
     "server",

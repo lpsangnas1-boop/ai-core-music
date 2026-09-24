@@ -1,18 +1,17 @@
 import type { Request, Response, NextFunction } from 'express';
-import { config } from '../config.js';
+import { checkAdminPin, getClientIp } from '../security.js';
+
+export function requestClientIp(req: Request): string {
+  return getClientIp(req.socket.remoteAddress, req.headers);
+}
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const pinHeader = req.headers['x-admin-pin'];
-  const pinQuery = req.query.adminPin;
-  const pinBody = req.body?.adminPin;
+  const providedPin = typeof pinHeader === 'string' ? pinHeader : req.body?.adminPin;
 
-  const providedPin = pinHeader || pinQuery || pinBody;
-
-  if (!providedPin || providedPin !== config.adminPin) {
-    res.status(401).json({
-      success: false,
-      error: 'Unauthorized: Invalid Admin PIN',
-    });
+  const result = checkAdminPin(providedPin, requestClientIp(req));
+  if (!result.ok) {
+    res.status(result.status).json({ success: false, error: result.error });
     return;
   }
 

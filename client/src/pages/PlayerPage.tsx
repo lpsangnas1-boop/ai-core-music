@@ -9,6 +9,7 @@ interface PlayerPageProps {
   playerState: PlayerState;
   queue: QueueItem[];
   settings: JukeboxSettings;
+  adminPin: string;
   onStartJukebox: () => void;
   onPlay: () => void;
   onPause: () => void;
@@ -25,6 +26,7 @@ export const PlayerPage: React.FC<PlayerPageProps> = ({
   playerState,
   queue,
   settings,
+  adminPin,
   onStartJukebox,
   onPlay,
   onPause,
@@ -54,7 +56,7 @@ export const PlayerPage: React.FC<PlayerPageProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-[#84849c]">
-              Giữ tab này mở để phát nhạc ra loa văn phòng. Mọi order từ đồng nghiệp sẽ tự động phát tại đây.
+              Mở tab này sẽ chuyển âm thanh về đây (tab DJ khác sẽ tạm dừng). Giữ tab mở để phát nhạc ra loa.
             </p>
           </div>
         </div>
@@ -98,8 +100,8 @@ export const PlayerPage: React.FC<PlayerPageProps> = ({
             playerState={playerState}
             nextSong={queue.find((q) => q.status === 'queued') || null}
             settings={settings}
+            adminPin={adminPin}
             onStartJukebox={onStartJukebox}
-            onSeek={onSeek}
           />
 
           <PlayerControls
@@ -128,7 +130,7 @@ export const PlayerPage: React.FC<PlayerPageProps> = ({
               <span>Multi-Tab Sync Active</span>
             </div>
             <p className="text-[11px] text-[#84849c] leading-relaxed">
-              Bạn có thể để tab này chạy ngầm hoặc kéo sang màn hình phụ. Khi bất kỳ ai order bài trên web chính, bài hát sẽ chuyển mượt mà tại đây.
+              Chỉ một tab/thiết bị được phát nhạc tại một thời điểm. Bạn có thể để tab này chạy ngầm hoặc kéo sang màn hình phụ.
             </p>
           </div>
         </div>

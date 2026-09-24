@@ -3,6 +3,7 @@ import { getSocket } from '../services/socket.js';
 import { api } from '../services/api.js';
 import { useToast } from './useToast.js';
 import { useDeviceId } from './useDeviceId.js';
+import { deviceKey } from '../utils/deviceKey.js';
 import type {
   PlayerState,
   QueueItem,
@@ -16,8 +17,9 @@ import type {
 
 export function useJukebox(passedAdminPin?: string) {
   const { addToast } = useToast();
-  const { deviceId, adminPin: internalAdminPin } = useDeviceId();
-  const adminPin = passedAdminPin || internalAdminPin;
+  const { deviceId } = useDeviceId();
+  // Only the PIN owned by App: once App clears a stale PIN it must not be sent again.
+  const adminPin = passedAdminPin || '';
 
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [playerState, setPlayerState] = useState<PlayerState>({
@@ -123,15 +125,18 @@ export function useJukebox(passedAdminPin?: string) {
     const onVoteUpdate = (updatedVote: VoteSkipState) => {
       setVoteState({
         ...updatedVote,
-        userVoted: deviceId ? updatedVote.voters.includes(deviceId) : false,
+        userVoted: deviceId ? updatedVote.voters.includes(deviceKey(deviceId)) : false,
       });
     };
 
     const onReactionNew = (rx: ReactionItem) => {
+      // Never render unexpected shapes (a non-string child would crash React)
+      if (!rx || typeof rx.emoji !== 'string' || (rx.userName !== undefined && typeof rx.userName !== 'string')) return;
       setReactions((prev) => [...prev.slice(-25), rx]);
     };
 
     const onDanmakuNew = (dm: DanmakuItem) => {
+      if (!dm || typeof dm.text !== 'string' || typeof dm.userName !== 'string') return;
       setDanmakuList((prev) => [...prev.slice(-30), dm]);
     };
 
@@ -341,14 +346,11 @@ export function useJukebox(passedAdminPin?: string) {
   const handleVoteSkip = async () => {
     try {
       const res = await api.voteSkip(deviceId);
-      setVoteState({
-        ...res,
-        userVoted: res.voters.includes(deviceId),
-      });
+      setVoteState(res);
       if (res.skipped) {
         addToast({ type: 'success', title: 'Đã đủ 3 vote! Đang chuyển bài tiếp theo...' });
       } else {
-        const hasVoted = res.voters.includes(deviceId);
+        const hasVoted = Boolean(res.userVoted);
         addToast({
           type: 'info',
           title: hasVoted ? `Đã vote bỏ qua (${res.count}/${res.required})` : 'Đã hủy vote bỏ qua',
@@ -362,7 +364,7 @@ export function useJukebox(passedAdminPin?: string) {
   const handleSendReaction = (emoji: string, userName?: string) => {
     const socket = getSocket();
     if (socket) {
-      socket.emit('reaction:send', { emoji, userName, deviceId });
+      socket.emit('reaction:send', { emoji, userName });
     }
   };
 

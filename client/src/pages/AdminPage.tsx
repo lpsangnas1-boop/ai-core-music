@@ -121,6 +121,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             playerState={playerState}
             nextSong={queue.find((q) => q.status === 'queued')}
             settings={settings}
+            adminPin={adminPin}
             onStartJukebox={onStartJukebox}
             onPlay={onPlay}
             onPause={onPause}

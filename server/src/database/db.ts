@@ -97,5 +97,13 @@ export function initDatabase() {
     // Column already exists
   }
 
+  // Older versions stored 'YYYY-MM-DD HH:MM:SS' (UTC, no zone) for removed entries.
+  // Normalize to ISO-8601 so sorting and browser parsing are correct.
+  db.exec(`
+    UPDATE request_history
+    SET played_at = replace(played_at, ' ', 'T') || '.000Z'
+    WHERE played_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]';
+  `);
+
   console.log(`[Database] SQLite initialized at ${config.dbPath}`);
 }

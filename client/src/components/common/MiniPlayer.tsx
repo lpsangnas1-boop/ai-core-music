@@ -24,6 +24,8 @@ interface MiniPlayerProps {
   onTogglePillMode?: () => void;
   onOpenDocPip?: () => void;
   onSkipSong?: () => void;
+  /** Button label for skip (e.g. 'Vote qua' for guests). */
+  skipLabel?: string;
   onPlay?: () => void;
   onPause?: () => void;
   onSendReaction?: (emoji: string) => void;
@@ -47,6 +49,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
   onTogglePillMode,
   onOpenDocPip,
   onSkipSong,
+  skipLabel = 'Qua bài',
   onPlay,
   onPause,
   onSendReaction,
@@ -433,7 +436,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
                   title="Bỏ qua và phát bài tiếp theo"
                 >
                   <SkipForward className="w-3.5 h-3.5 text-[#3252f4]" />
-                  <span className="whitespace-nowrap">Qua bài</span>
+                  <span className="whitespace-nowrap">{skipLabel}</span>
                 </button>
               )}
             </div>

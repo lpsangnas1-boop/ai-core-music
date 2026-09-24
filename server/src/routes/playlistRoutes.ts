@@ -23,8 +23,8 @@ playlistRouter.get('/', (_req: Request, res: Response) => {
 // Admin: Add song to default playlist
 playlistRouter.post('/', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { url } = req.body;
-    if (!url) {
+    const url = req.body?.url;
+    if (typeof url !== 'string' || !url) {
       res.status(400).json({ success: false, error: 'YouTube URL or Video ID is required' });
       return;
     }
@@ -62,7 +62,7 @@ playlistRouter.delete('/:id', requireAdmin, (req: Request, res: Response) => {
 // Admin: Toggle song active status
 playlistRouter.patch('/:id/toggle', requireAdmin, (req: Request, res: Response) => {
   const id = String(req.params.id);
-  const { isEnabled } = req.body;
+  const isEnabled = req.body?.isEnabled;
 
   if (typeof isEnabled !== 'boolean') {
     res.status(400).json({ success: false, error: 'isEnabled must be a boolean' });
@@ -80,8 +80,8 @@ playlistRouter.patch('/:id/toggle', requireAdmin, (req: Request, res: Response) 
 
 // Admin: Reorder default playlist
 playlistRouter.patch('/reorder', requireAdmin, (req: Request, res: Response) => {
-  const { orderedIds } = req.body;
-  if (!Array.isArray(orderedIds)) {
+  const orderedIds = req.body?.orderedIds;
+  if (!Array.isArray(orderedIds) || !orderedIds.every((id) => typeof id === 'string')) {
     res.status(400).json({ success: false, error: 'orderedIds must be an array of IDs' });
     return;
   }

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { playbackService } from '../services/playbackService.js';
 import { requireAdmin } from '../middleware/authMiddleware.js';
 import { fetchYouTubeMetadata } from '../services/metadataService.js';
+import { deviceKey } from '../security.js';
 
 export const playerRouter = Router();
 
@@ -31,29 +32,40 @@ playerRouter.post('/pause', requireAdmin, (_req: Request, res: Response) => {
   res.json({ success: true, data: state });
 });
 
-// Public / Admin: Next / Skip song
+// Admin: Next / Skip song (guests use vote-skip)
+// Anyone can skip with one click. Skips closer than 3s apart are ignored so a double click
+// (or a script) cannot skip several songs at once and drain the queue.
+const SKIP_COOLDOWN_MS = 3000;
+let lastSkipAt = 0;
+
 playerRouter.post('/next', (_req: Request, res: Response) => {
+  const now = Date.now();
+  if (now - lastSkipAt < SKIP_COOLDOWN_MS) {
+    res.status(429).json({ success: false, error: 'Vừa chuyển bài xong, đợi vài giây rồi bấm lại nhé!' });
+    return;
+  }
+  lastSkipAt = now;
   const state = playbackService.next();
   res.json({ success: true, data: state });
 });
 
 // Public: Get current vote skip state
 playerRouter.get('/vote-skip', (req: Request, res: Response) => {
-  const deviceId = (req.query.deviceId as string) || '';
+  const deviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : '';
   const voteState = playbackService.getVoteSkipState();
   res.json({
     success: true,
     data: {
       ...voteState,
-      userVoted: deviceId ? voteState.voters.includes(deviceId) : false,
+      userVoted: deviceId ? voteState.voters.includes(deviceKey(deviceId)) : false,
     },
   });
 });
 
 // Public: Vote to skip current song
 playerRouter.post('/vote-skip', (req: Request, res: Response) => {
-  const { deviceId } = req.body;
-  if (!deviceId) {
+  const deviceId = req.body?.deviceId;
+  if (typeof deviceId !== 'string' || !deviceId || deviceId.length > 100) {
     res.status(400).json({ success: false, error: 'deviceId is required' });
     return;
   }
@@ -63,7 +75,7 @@ playerRouter.post('/vote-skip', (req: Request, res: Response) => {
     data: {
       ...result.voteState,
       skipped: result.skipped,
-      userVoted: result.voteState.voters.includes(deviceId),
+      userVoted: result.voteState.voters.includes(deviceKey(deviceId)),
     },
   });
 });
@@ -76,8 +88,8 @@ playerRouter.post('/previous', requireAdmin, (_req: Request, res: Response) => {
 
 // Admin: Seek
 playerRouter.post('/seek', requireAdmin, (req: Request, res: Response) => {
-  const { time } = req.body;
-  if (typeof time !== 'number') {
+  const time = req.body?.time;
+  if (typeof time !== 'number' || !Number.isFinite(time) || time < 0) {
     res.status(400).json({ success: false, error: 'Invalid time value' });
     return;
   }
@@ -100,8 +112,8 @@ playerRouter.post('/volume', requireAdmin, (req: Request, res: Response) => {
 // Admin: Play custom song immediately
 playerRouter.post('/play-now', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { url } = req.body;
-    if (!url) {
+    const url = req.body?.url;
+    if (typeof url !== 'string' || !url) {
       res.status(400).json({ success: false, error: 'URL is required' });
       return;
     }

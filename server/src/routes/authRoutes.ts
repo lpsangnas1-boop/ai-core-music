@@ -1,29 +1,27 @@
 import { Router, Request, Response } from 'express';
-import { config } from '../config.js';
+import { checkAdminPin } from '../security.js';
+import { requestClientIp } from '../middleware/authMiddleware.js';
 
 export const authRouter = Router();
 
 authRouter.post('/login', (req: Request, res: Response) => {
-  const { pin } = req.body;
+  const result = checkAdminPin(req.body?.pin, requestClientIp(req));
 
-  if (pin && pin.trim() === config.adminPin) {
-    res.json({
-      success: true,
-      message: 'Admin authenticated successfully',
-    });
+  if (result.ok) {
+    res.json({ success: true, message: 'Admin authenticated successfully' });
   } else {
-    res.status(401).json({
+    res.status(result.status).json({
       success: false,
-      error: 'Invalid Admin PIN',
+      error: result.status === 401 ? 'Mã PIN không chính xác' : result.error,
     });
   }
 });
 
 authRouter.get('/verify', (req: Request, res: Response) => {
-  const pinHeader = req.headers['x-admin-pin'];
-  if (pinHeader && pinHeader === config.adminPin) {
+  const result = checkAdminPin(req.headers['x-admin-pin'], requestClientIp(req));
+  if (result.ok) {
     res.json({ success: true, isAdmin: true });
   } else {
-    res.json({ success: false, isAdmin: false });
+    res.status(result.status).json({ success: false, isAdmin: false, error: result.error });
   }
 });

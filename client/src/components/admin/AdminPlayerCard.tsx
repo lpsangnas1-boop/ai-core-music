@@ -14,22 +14,16 @@ import {
   Shield,
 } from 'lucide-react';
 import { Visualizer } from '../common/Visualizer.js';
-import { getSocket } from '../../services/socket.js';
+import { MasterStatusBanner } from './MasterStatusBanner.js';
+import { useMasterPlayer } from '../../hooks/useMasterPlayer.js';
 import { extractAmbientColor } from '../../utils/colorExtractor.js';
-import type { PlayerState, CurrentSongState, QueueItem, JukeboxSettings } from '../../types/index.js';
-
-// YouTube IFrame types
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
-  }
-}
+import type { PlayerState, QueueItem, JukeboxSettings } from '../../types/index.js';
 
 interface AdminPlayerCardProps {
   playerState: PlayerState;
   nextSong?: QueueItem | null;
   settings?: JukeboxSettings;
+  adminPin: string;
   onStartJukebox: () => void;
   onPlay: () => void;
   onPause: () => void;
@@ -50,6 +44,7 @@ export const AdminPlayerCard: React.FC<AdminPlayerCardProps> = ({
   playerState,
   nextSong,
   settings,
+  adminPin,
   onStartJukebox,
   onPlay,
   onPause,
@@ -69,130 +64,16 @@ export const AdminPlayerCard: React.FC<AdminPlayerCardProps> = ({
     }
   }, [currentSong?.thumbnail, currentSong?.youtubeId]);
 
-  const playerRef = useRef<any>(null);
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [isApiReady, setIsApiReady] = useState(false);
-  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  // Hidden audio engine: plays only while this tab is the active master player
+  const master = useMasterPlayer({
+    containerId: 'admin-hidden-yt-target',
+    playerState,
+    settings,
+    adminPin,
+    takeoverOnMount: false,
+  });
+  const { isNormalizing } = master;
   const [hasUserStarted, setHasUserStarted] = useState(playerState.isJukeboxStarted);
-
-  const currentSongRef = useRef<CurrentSongState | null>(playerState.currentSong);
-  currentSongRef.current = playerState.currentSong;
-
-  // 1. Load YouTube IFrame API script for audio engine
-  useEffect(() => {
-    if (window.YT && window.YT.Player) {
-      setIsApiReady(true);
-      return;
-    }
-
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-
-    window.onYouTubeIframeAPIReady = () => {
-      setIsApiReady(true);
-    };
-  }, []);
-
-  // 2. Initialize background YouTube Player once API is ready
-  useEffect(() => {
-    if (!isApiReady || playerRef.current) return;
-
-    try {
-      playerRef.current = new window.YT.Player('admin-hidden-yt-target', {
-        height: '100%',
-        width: '100%',
-        playerVars: {
-          autoplay: 1,
-          controls: 0,
-          disablekb: 1,
-          fs: 0,
-          modestbranding: 1,
-          rel: 0,
-          iv_load_policy: 3,
-          enablejsapi: 1,
-          origin: window.location.origin,
-        },
-        events: {
-          onReady: (event: any) => {
-            setIsPlayerReady(true);
-            try {
-              event.target.setVolume(playerState.volume);
-              if (playerState.isMuted) event.target.mute();
-            } catch (e) {}
-
-            if (currentSongRef.current?.youtubeId && playerState.isJukeboxStarted) {
-              try {
-                event.target.loadVideoById({
-                  videoId: currentSongRef.current.youtubeId,
-                  startSeconds: playerState.currentTime || 0,
-                });
-              } catch (e) {}
-            }
-          },
-          onStateChange: (event: any) => {
-            const socket = getSocket();
-            if (event.data === window.YT.PlayerState.PLAYING) {
-              socket.emit('player:report_state', {
-                status: 'playing',
-                currentTime: event.target.getCurrentTime() || 0,
-                duration: event.target.getDuration() || 0,
-              });
-            } else if (event.data === window.YT.PlayerState.PAUSED) {
-              socket.emit('player:report_state', {
-                status: 'paused',
-                currentTime: event.target.getCurrentTime() || 0,
-                duration: event.target.getDuration() || 0,
-              });
-            } else if (event.data === window.YT.PlayerState.ENDED) {
-              socket.emit('player:song_ended');
-            }
-          },
-          onError: (event: any) => {
-            const youtubeId = currentSongRef.current?.youtubeId || '';
-            console.warn(`[AdminPlayerCard] Video playback error ${event.data} on ${youtubeId}`);
-            const socket = getSocket();
-            socket.emit('player:song_error', {
-              youtubeId,
-              errorCode: event.data,
-            });
-          },
-        },
-      });
-    } catch (e) {
-      console.warn('Failed to init hidden YouTube player:', e);
-    }
-
-    return () => {
-      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-        try {
-          playerRef.current.destroy();
-        } catch (e) {}
-        playerRef.current = null;
-      }
-    };
-  }, [isApiReady]);
-
-  // 3. React to currentSong change: load video into background player
-  useEffect(() => {
-    if (!isPlayerReady || !playerRef.current) return;
-
-    if (currentSong?.youtubeId && (hasUserStarted || playerState.isJukeboxStarted)) {
-      try {
-        playerRef.current.loadVideoById({
-          videoId: currentSong.youtubeId,
-          startSeconds: currentTime || 0,
-        });
-        playerRef.current.playVideo();
-      } catch (e) {}
-    }
-  }, [currentSong?.youtubeId, isPlayerReady]);
-
-  const isLoudTrack = currentSong ? /remix|vinahouse|phonk|bass|edm|quẩy|quay|trap|rave|club/i.test(currentSong.title) : false;
-  const isNormalizing = isLoudTrack && (settings?.volumeNormalization !== false);
-  const effectiveVolume = isNormalizing ? Math.round(volume * 0.82) : volume;
 
   const preloadedRef = useRef<string | null>(null);
 
@@ -208,78 +89,11 @@ export const AdminPlayerCard: React.FC<AdminPlayerCardProps> = ({
     }
   }, [isPlaying, duration, currentTime, nextSong?.youtubeId, nextSong?.thumbnail, nextSong?.title]);
 
-  // 4. React to playback status (playing vs paused)
-  useEffect(() => {
-    if (!isPlayerReady || !playerRef.current) return;
-    try {
-      if (isPlaying) {
-        playerRef.current.playVideo();
-      } else if (status === 'paused') {
-        playerRef.current.pauseVideo();
-      }
-    } catch (e) {}
-  }, [isPlaying, status, isPlayerReady]);
-
-  // 5. React to volume & mute changes (with Volume Normalizer)
-  useEffect(() => {
-    if (!isPlayerReady || !playerRef.current) return;
-    try {
-      playerRef.current.setVolume(effectiveVolume);
-      if (isMuted) {
-        playerRef.current.mute();
-      } else {
-        playerRef.current.unMute();
-      }
-    } catch (e) {}
-  }, [effectiveVolume, isMuted, isPlayerReady]);
-
-  // 6. Regular progress poll to sync with server
-  useEffect(() => {
-    if (isPlaying && isPlayerReady && playerRef.current) {
-      progressIntervalRef.current = setInterval(() => {
-        try {
-          if (typeof playerRef.current.getCurrentTime === 'function') {
-            const time = playerRef.current.getCurrentTime();
-            const dur = playerRef.current.getDuration();
-            const socket = getSocket();
-            if (time > 0 && dur > 0) {
-              socket.emit('player:report_state', {
-                status: 'playing',
-                currentTime: time,
-                duration: dur,
-              });
-            }
-          }
-        } catch (e) {}
-      }, 1000);
-    } else {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    };
-  }, [isPlaying, isPlayerReady]);
-
   const handleStartJukeboxClick = () => {
     setHasUserStarted(true);
+    if (!master.isActive) master.claim();
+    master.unlockAudio();
     onStartJukebox();
-    if (playerRef.current && isPlayerReady) {
-      try {
-        if (currentSong?.youtubeId) {
-          playerRef.current.loadVideoById({
-            videoId: currentSong.youtubeId,
-            startSeconds: currentTime || 0,
-          });
-        }
-        playerRef.current.playVideo();
-      } catch (e) {}
-    }
   };
 
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
@@ -356,6 +170,17 @@ export const AdminPlayerCard: React.FC<AdminPlayerCardProps> = ({
 
           <Visualizer isPlaying={isPlaying} barColor="bg-[#25385b]" />
         </div>
+      </div>
+
+      <div className="mb-3">
+        <MasterStatusBanner
+          isActive={master.isActive}
+          activeKind={master.activeKind}
+          registerError={master.registerError}
+          needsUserGesture={master.needsUserGesture}
+          onClaim={master.claim}
+          onUnlock={master.unlockAudio}
+        />
       </div>
 
       {/* Main Track Display with Rotating Vinyl Record */}

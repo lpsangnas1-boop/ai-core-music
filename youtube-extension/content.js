@@ -4,12 +4,16 @@
   console.log('[Office Jukebox Extension] Content script active on YouTube (CSP-compliant)');
 
   let serverUrl = 'http://localhost:8989';
+  let adminPin = '';
   let socket = null;
+  let isMaster = false;
   let currentPlayingVideoId = null;
   let lastSyncedVideoId = null;
   let hasSentEndedForCurrentVideo = false;
   let isChangingSong = false;
   let lastCommandTime = 0;
+  let hookedVideo = null;
+  let syncTimer = null;
 
   // Floating UI badge
   let badgeEl = null;
@@ -54,8 +58,13 @@
 
     badgeEl.addEventListener('mouseenter', () => (badgeEl.style.transform = 'scale(1.03)'));
     badgeEl.addEventListener('mouseleave', () => (badgeEl.style.transform = 'scale(1.0)'));
+    // Click: take over audio when another player is active, otherwise open the Jukebox web app
     badgeEl.addEventListener('click', () => {
-      window.open(serverUrl, '_blank');
+      if (socket && socket.connected && !isMaster && adminPin) {
+        registerAsMaster(true);
+      } else {
+        window.open(serverUrl, '_blank');
+      }
     });
 
     document.body.appendChild(badgeEl);
@@ -77,6 +86,12 @@
     return clean;
   }
 
+  /** YouTube adds "ad-showing" to the player while an ad plays in the same <video>. */
+  function isAdPlaying() {
+    const player = document.getElementById('movie_player');
+    return Boolean(player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting')));
+  }
+
   function cancelYouTubeAutoplayOverlay() {
     try {
       const cancelBtn =
@@ -95,7 +110,6 @@
     isChangingSong = true;
     lastCommandTime = Date.now();
 
-    // Cancel any YouTube autoplay countdown
     cancelYouTubeAutoplayOverlay();
 
     const video = document.querySelector('video');
@@ -108,9 +122,8 @@
     }, 6000);
 
     const targetUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const currentUrl = window.location.href;
 
-    if (currentUrl.includes(videoId)) {
+    if (new URLSearchParams(window.location.search).get('v') === videoId) {
       if (video) {
         video.currentTime = 0;
         video.play().catch(() => {});
@@ -133,7 +146,6 @@
 
     if (!videoId) return null;
 
-    // 1. Extract Title
     let title = '';
     const titleEl =
       document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
@@ -148,7 +160,6 @@
       title = document.title.replace(/\s*-\s*YouTube$/, '').trim();
     }
 
-    // 2. Extract Channel
     let channel = '';
     const channelEl =
       document.querySelector('#channel-name yt-formatted-string a') ||
@@ -163,19 +174,22 @@
     }
 
     const video = document.querySelector('video');
+    const duration = video && Number.isFinite(video.duration) ? Math.floor(video.duration) : 0;
 
     return {
       youtubeId: videoId,
       title: title || 'YouTube Video',
       channel: channel || 'YouTube',
-      thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
       currentTime: video ? Math.floor(video.currentTime) : 0,
-      duration: video ? Math.floor(video.duration) : 0,
+      duration,
+      status: video && !video.paused && !video.ended ? 'playing' : 'paused',
     };
   }
 
   function syncCurrentVideoToJukebox() {
-    if (!socket || !socket.connected) return;
+    if (!socket || !socket.connected || !isMaster) return;
+    // During ads the <video> element reports the ad's time/duration, not the song's
+    if (isAdPlaying()) return;
 
     const info = extractYouTubeInfo();
     if (!info || !info.youtubeId) return;
@@ -185,14 +199,36 @@
       return;
     }
 
-    // Reset ended flag when new video begins
     if (lastSyncedVideoId !== info.youtubeId) {
       hasSentEndedForCurrentVideo = false;
       lastSyncedVideoId = info.youtubeId;
     }
 
     socket.emit('player:sync_from_youtube', info);
-    setStatus(`Playing: ${info.title}`, '#2f80fa');
+    setStatus(`${info.status === 'playing' ? 'Playing' : 'Paused'}: ${info.title}`, '#2f80fa');
+  }
+
+  function registerAsMaster(takeover) {
+    if (!socket || !socket.connected) return;
+    if (!adminPin) {
+      isMaster = false;
+      setStatus('Cần nhập PIN DJ trong popup extension', '#f54e00');
+      return;
+    }
+    socket.emit('master:register', { pin: adminPin, kind: 'youtube-tab', takeover: Boolean(takeover) }, (res) => {
+      if (!res || !res.ok) {
+        isMaster = false;
+        setStatus((res && res.error) || 'PIN không đúng', '#f54e00');
+        return;
+      }
+      isMaster = Boolean(res.active);
+      if (isMaster) {
+        setStatus('Linked & Ready', '#6aa84f');
+        setTimeout(syncCurrentVideoToJukebox, 500);
+      } else {
+        setStatus('Đang phát ở tab khác — bấm để chuyển về đây', '#eb9d2a');
+      }
+    });
   }
 
   function connectSocket() {
@@ -206,6 +242,7 @@
         socket.disconnect();
       } catch (e) {}
     }
+    isMaster = false;
 
     const targetUrl = cleanUrl(serverUrl);
     console.log('[Office Jukebox Extension] Connecting Socket.IO to:', targetUrl);
@@ -216,51 +253,67 @@
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
         timeout: 10000,
         transports: ['websocket', 'polling'],
+        // Fall back to HTTP long-polling when a proxy/network blocks WebSockets
+        tryAllTransports: true,
       });
 
+      let isOffline = false;
+
+      // 'connect' also fires after every automatic reconnection
       socket.on('connect', () => {
         console.log('[Office Jukebox Extension] Connected to', targetUrl);
-        setStatus('Linked & Ready', '#6aa84f');
-        setTimeout(syncCurrentVideoToJukebox, 500);
+        isOffline = false;
+        registerAsMaster(false);
       });
 
       socket.on('disconnect', () => {
-        console.warn('[Office Jukebox Extension] Disconnected from server');
+        isMaster = false;
         setStatus('Reconnecting...', '#eb9d2a');
       });
 
-      socket.io.on('reconnect', () => {
-        console.log('[Office Jukebox Extension] Reconnected to server');
-        setStatus('Linked & Ready', '#6aa84f');
-        setTimeout(syncCurrentVideoToJukebox, 500);
-      });
-
       socket.on('connect_error', (err) => {
-        console.warn('[Office Jukebox Extension] Connect error:', err.message);
-        setStatus(`Cannot reach ${targetUrl}`, '#eb9d2a');
+        // Retries happen every few seconds while the DJ server is off: log once per outage
+        // (console.log, not warn) so chrome://extensions is not flooded with "errors".
+        if (!isOffline) {
+          isOffline = true;
+          console.log(`[Office Jukebox Extension] Cannot reach ${targetUrl} (${err.message}). Retrying in background...`);
+        }
+        setStatus(`Không kết nối được server — DJ Station đã bật chưa? (${targetUrl})`, '#eb9d2a');
       });
 
-      // Handle playback commands from Jukebox (100% CSP-safe)
+      socket.on('master:status', (status) => {
+        const active = Boolean(status && status.activeSocketId && status.activeSocketId === socket.id);
+        if (isMaster && !active) {
+          setStatus('Đang phát ở tab khác — bấm để chuyển về đây', '#eb9d2a');
+          const video = document.querySelector('video');
+          if (video) video.pause();
+        }
+        isMaster = active;
+      });
+
       socket.on('player:command', (cmd) => {
-        console.log('[Office Jukebox Extension] Received command from Jukebox:', cmd);
+        if (!isMaster || !cmd) return;
         const video = document.querySelector('video');
 
         if (cmd.action === 'load_song' && cmd.song && cmd.song.youtubeId) {
-          const videoId = cmd.song.youtubeId;
           setStatus(`Order Playing: ${cmd.song.title}`, '#2f80fa');
-          loadVideoOnYouTube(videoId);
+          loadVideoOnYouTube(cmd.song.youtubeId);
         } else if (cmd.action === 'play') {
           if (video) video.play().catch(() => {});
-        } else if (cmd.action === 'pause') {
+        } else if (cmd.action === 'pause' || cmd.action === 'stop') {
           if (video) video.pause();
         } else if (cmd.action === 'seek' && typeof cmd.time === 'number') {
           if (video) video.currentTime = cmd.time;
         } else if (cmd.action === 'volume' && typeof cmd.volume === 'number') {
-          if (video) video.volume = Math.max(0, Math.min(1, cmd.volume / 100));
+          if (video) {
+            video.volume = Math.max(0, Math.min(1, cmd.volume / 100));
+            video.muted = Boolean(cmd.isMuted);
+          }
         } else if (cmd.action === 'skip' || cmd.action === 'next') {
-          const nextBtn = document.querySelector('.ytp-next-button') || document.querySelector('a.ytp-next-button');
+          const nextBtn = document.querySelector('.ytp-next-button');
           if (nextBtn) {
             nextBtn.click();
           } else {
@@ -274,107 +327,97 @@
     }
   }
 
-  // Hook YouTube <video> element events
-  let isHooked = false;
+  function handleSongEnded(video) {
+    if (hasSentEndedForCurrentVideo || isAdPlaying()) return;
+    const now = Date.now();
+
+    if (isChangingSong || now - lastCommandTime < 6000) {
+      console.log('[Office Jukebox Extension] Ignored song change ended event.');
+      return;
+    }
+
+    if (video.duration > 10 && video.currentTime < video.duration - 4) {
+      console.log('[Office Jukebox Extension] Ignored premature ended event at:', video.currentTime);
+      return;
+    }
+
+    hasSentEndedForCurrentVideo = true;
+    cancelYouTubeAutoplayOverlay();
+    console.log('[Office Jukebox Extension] Song ended legitimately! Requesting next queued song...');
+
+    if (socket && socket.connected && isMaster) {
+      socket.emit('player:song_ended');
+    }
+  }
+
+  // Attach listeners once per <video> element (YouTube reuses it across SPA navigations)
   function hookVideo() {
     const video = document.querySelector('video');
     if (!video) {
       setTimeout(hookVideo, 1000);
       return;
     }
+    if (video === hookedVideo) return;
+    hookedVideo = video;
 
-    if (isHooked) return;
-    isHooked = true;
-
-    function handleSongEnded() {
-      if (hasSentEndedForCurrentVideo) return; // ONLY ONCE per song!
-      const now = Date.now();
-
-      if (isChangingSong || now - lastCommandTime < 6000) {
-        console.log('[Office Jukebox Extension] Ignored song change ended event.');
-        return;
-      }
-
-      if (video.duration > 10 && video.currentTime < video.duration - 4) {
-        console.log('[Office Jukebox Extension] Ignored premature ended event at:', video.currentTime);
-        return;
-      }
-
-      hasSentEndedForCurrentVideo = true;
-      cancelYouTubeAutoplayOverlay();
-      console.log('[Office Jukebox Extension] Song ended legitimately! Requesting next queued song...');
-      
-      if (socket && socket.connected) {
-        socket.emit('player:song_ended');
-      }
-    }
-
-    video.addEventListener('ended', handleSongEnded);
+    video.addEventListener('ended', () => handleSongEnded(video));
 
     video.addEventListener('timeupdate', () => {
-      // If video is within 1s of ending, trigger early to override YouTube autoplay countdown!
-      if (video.duration > 10 && video.currentTime >= video.duration - 1.2 && !hasSentEndedForCurrentVideo) {
-        handleSongEnded();
+      // Trigger slightly early to beat YouTube's own autoplay countdown (never during ads)
+      if (
+        !isAdPlaying() &&
+        video.duration > 10 &&
+        video.currentTime >= video.duration - 1.2 &&
+        !hasSentEndedForCurrentVideo
+      ) {
+        handleSongEnded(video);
       }
     });
 
-    video.addEventListener('play', () => {
-      syncCurrentVideoToJukebox();
-      if (socket && socket.connected) {
-        socket.emit('player:report_state', {
-          status: 'playing',
-          currentTime: video.currentTime || 0,
-          duration: video.duration || 0,
-        });
-      }
-    });
-
+    video.addEventListener('play', () => syncCurrentVideoToJukebox());
     video.addEventListener('pause', () => {
-      if (!video.ended && socket && socket.connected) {
-        socket.emit('player:report_state', {
-          status: 'paused',
-          currentTime: video.currentTime || 0,
-          duration: video.duration || 0,
-        });
-      }
+      if (!video.ended) syncCurrentVideoToJukebox();
     });
-
-    // Periodic synchronization every 1s
-    setInterval(() => {
-      if (socket && socket.connected) {
-        syncCurrentVideoToJukebox();
-      }
-    }, 1000);
   }
 
-  // Initialize
+  function startSyncTimer() {
+    if (syncTimer) return;
+    syncTimer = setInterval(syncCurrentVideoToJukebox, 1000);
+  }
+
   function init() {
     createBadge();
 
+    const start = () => {
+      connectSocket();
+      hookVideo();
+      startSyncTimer();
+    };
+
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get(['jukeboxUrl'], (result) => {
-        if (result && result.jukeboxUrl) {
-          serverUrl = result.jukeboxUrl;
-        }
-        connectSocket();
-        hookVideo();
+      chrome.storage.local.get(['jukeboxUrl', 'jukeboxPin'], (result) => {
+        if (result && result.jukeboxUrl) serverUrl = result.jukeboxUrl;
+        if (result && result.jukeboxPin) adminPin = result.jukeboxPin;
+        start();
       });
 
       chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local' && changes.jukeboxUrl) {
+        if (area !== 'local') return;
+        if (changes.jukeboxPin) adminPin = changes.jukeboxPin.newValue || '';
+        if (changes.jukeboxUrl) {
           serverUrl = changes.jukeboxUrl.newValue;
           console.log('[Office Jukebox Extension] URL changed to:', serverUrl);
           connectSocket();
+        } else if (changes.jukeboxPin) {
+          registerAsMaster(false);
         }
       });
     } else {
-      connectSocket();
-      hookVideo();
+      start();
     }
 
     window.addEventListener('yt-navigate-finish', () => {
       createBadge();
-      isHooked = false;
       hookVideo();
       setTimeout(syncCurrentVideoToJukebox, 1000);
     });
