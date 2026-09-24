@@ -42,10 +42,11 @@ Chọn **1 trong 3 hướng** phù hợp với nhu cầu của máy tính:
 
 ---
 
-### 👥 Hướng 2: Chạy trạm riêng cho máy khác / phòng ban khác (`teamedu.lpsang.id.vn`)
-> Dành cho máy tính của đồng nghiệp hoặc phòng ban khác muốn chạy một trạm phát nhạc độc lập qua Cloudflare Token (không cần đăng nhập tài khoản Cloudflare).
+### 👥 Hướng 2: Chạy trạm riêng cho máy khác / phòng ban khác
+> Dành cho máy tính của đồng nghiệp hoặc phòng ban khác muốn chạy trạm phát nhạc độc lập qua Cloudflare Token (không cần đăng nhập tài khoản Cloudflare).
 
-1. Tạo file `.env` tại thư mục gốc và dán Token riêng:
+#### Option A: Trạm Team Edu (`teamedu.lpsang.id.vn`)
+1. Tạo file `.env` tại thư mục gốc:
    ```env
    PORT=8989
    ADMIN_PIN=123456
@@ -54,11 +55,21 @@ Chọn **1 trong 3 hướng** phù hợp với nhu cầu của máy tính:
    CUSTOM_DOMAIN=teamedu.lpsang.id.vn
    CLOUDFLARE_TUNNEL_TOKEN=eyJhIjoiNTNiNGI5ZDUyN2MzZDM5ZjU1ODg1MTU0Zjk2MjAxZjAiLCJzIjoiaWFhekhtY2FLRERNOUNWZ1NFOU5KSU1NRElGbXlBZ3AvUDIwQmVGY3FjUT0iLCJ0IjoiNzFlMjMzMDEtYjJmMS00ODgxLTlhOGQtZmNiOTcyNTg1ZDgzIn0=
    ```
-2. Cài đặt `cloudflared` (nếu máy chưa có):
-   ```powershell
-   winget install --id Cloudflare.cloudflared
+2. Cài đặt `cloudflared` (nếu máy chưa có): `winget install --id Cloudflare.cloudflared`
+3. Nhấp đúp **`start-music.bat`** ➔ Truy cập: **`https://teamedu.lpsang.id.vn`**
+
+#### Option B: Trạm Team SEO (`teamseo.lpsang.id.vn`)
+1. Tạo file `.env` tại thư mục gốc:
+   ```env
+   PORT=8989
+   ADMIN_PIN=123456
+   SERVER_NAME="TeamSEO music"
+   TUNNEL_MODE=cloudflare
+   CUSTOM_DOMAIN=teamseo.lpsang.id.vn
+   CLOUDFLARE_TUNNEL_TOKEN=eyJhIjoiNTNiNGI5ZDUyN2MzZDM5ZjU1ODg1MTU0Zjk2MjAxZjAiLCJzIjoiWFJCNkJkT1l3dnA2UmVEWkpyMFRMcEhMbUpMUWNMVmR3emxZenczcFMwQT0iLCJ0IjoiMjdjNDhjNTItY2FmMS00YWRkLWE4M2MtYzExYmYzMDc1YjIxIn0=
    ```
-3. Nhấp đúp **`start-music.bat`** ➔ Mở trình duyệt vào: **`https://teamedu.lpsang.id.vn`**
+2. Cài đặt `cloudflared` (nếu máy chưa có): `winget install --id Cloudflare.cloudflared`
+3. Nhấp đúp **`start-music.bat`** ➔ Truy cập: **`https://teamseo.lpsang.id.vn`**
 
 ---
 
