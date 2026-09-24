@@ -243,7 +243,7 @@ function startTunnel() {
       console.log(`⏳ Đang kết nối Cloudflare Tunnel (${onlineUrl})...`);
       const token = process.env.CLOUDFLARE_TUNNEL_TOKEN;
       const cfArgs = token
-        ? ['tunnel', 'run', '--protocol', 'http2', '--token', token]
+        ? ['tunnel', 'run', '--protocol', 'http2', '--token', token, '--url', `http://localhost:${PORT}`]
         : ['tunnel', 'run', '--protocol', 'http2', 'ai-core-music'];
       tunnelProcess = spawn('cloudflared', cfArgs, {
         stdio: ['ignore', 'pipe', 'pipe'],
